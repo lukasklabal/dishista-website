@@ -128,124 +128,203 @@
     hero.addEventListener('pointerleave', () => { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(step); });
   }
 
-  /* ── Globe ── */
+  /* ── Globe (WebGL): a soft, glossy sphere with crisp land dots, same look as the app icon ── */
   const canvas = document.querySelector('canvas.globe');
-  if (canvas && cfg.globe) initGlobe(canvas, cfg.globe, cfg.pins || []);
+  if (canvas) initGlobe(canvas, cfg.pins || []);
 
-  function initGlobe(canvas, flat, pins) {
-    const ctx = canvas.getContext('2d');
-    const pts = [];
+  function initGlobe(canvas, pins) {
+    const gl = canvas.getContext('webgl', { antialias: false, premultipliedAlpha: true, alpha: true });
+    if (!gl) { canvas.remove(); return; }
     const rad = Math.PI / 180;
-    for (let i = 0; i < flat.length; i += 2) {
-      const lat = flat[i] * rad, lon = flat[i + 1] * rad;
-      pts.push([Math.cos(lat) * Math.sin(lon), Math.sin(lat), Math.cos(lat) * Math.cos(lon)]);
-    }
-    const pinPts = pins.map((p) => {
-      const lat = p.lat * rad, lon = p.lng * rad;
-      return { ...p, v: [Math.cos(lat) * Math.sin(lon), Math.sin(lat), Math.cos(lat) * Math.cos(lon)] };
-    });
-    let w = 0, h = 0, dpr = 1, R = 0;
-    let rotY = -0.35, rotX = 0.32, vel = reduce ? 0 : 0.0018, dragging = false, lastX = 0, lastY = 0, visible = true;
+    const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+    const fs = `precision highp float;
+uniform vec2 uC; uniform float uR, uRotX, uRotY, uDark, uDpr; uniform sampler2D uMask;
+const float D = 1.5;            // dot grid spacing in degrees
+const float PI = 3.14159265;
+vec3 srgb(vec3 c){ return c; }
+void main(){
+  vec2 q = (gl_FragCoord.xy - uC) / uR;
+  float r = length(q);
+  float px = 1.0 / uR;                                   // one pixel in sphere units
+  vec3 lit = mix(vec3(1.0,.973,.937), vec3(.27,.21,.17), uDark);
+  vec3 shade = mix(vec3(.93,.74,.58), vec3(.10,.075,.06), uDark);
+  vec3 dotLit = mix(vec3(.93,.27,.14), vec3(1.0,.42,.24), uDark);
+  vec3 dotShade = mix(vec3(.74,.17,.08), vec3(.62,.18,.08), uDark);
+  vec4 outc = vec4(0.);
+  // soft contact shadow + warm atmosphere outside the sphere
+  float sh = length(q - vec2(.10,-.16));
+  float shadow = (1. - smoothstep(.70, 1.18, sh)) * mix(.16, .45, uDark);
+  float halo = exp(-max(r - 1., 0.) * 11.) * mix(.38, .30, uDark) * step(1., r);
+  vec3 haloCol = mix(vec3(1.,.70,.40), vec3(.93,.27,.14), uDark);
+  outc = vec4(vec3(.36,.14,.04) * shadow, shadow);
+  outc = vec4(haloCol * halo, halo) + outc * (1. - halo);
+  if (r < 1. + px) {
+    float z = sqrt(max(0., 1. - r * r));
+    vec3 n = vec3(q, z);
+    // view -> world (undo tilt, then spin)
+    float cx = cos(uRotX), sx = sin(uRotX), cy = cos(uRotY), sy = sin(uRotY);
+    float y = n.y * cx + n.z * sx;
+    float z1 = -n.y * sx + n.z * cx;
+    float x = n.x * cy - z1 * sy;
+    float zw = n.x * sy + z1 * cy;
+    float lat = asin(clamp(y, -1., 1.)) / PI * 180.;
+    float lon = atan(x, zw) / PI * 180.;
+    float li = floor((lat + 90.) / D);
+    float latC = (li + .5) * D - 90.;
+    float cnt = max(1., floor(360. * cos(latC * PI / 180.) / D));
+    float lj = floor((lon + 180.) / 360. * cnt);
+    float lonC = (lj + .5) * 360. / cnt - 180.;
+    float dlon = lon - lonC;
+    vec2 dd = vec2(dlon * cos(lat * PI / 180.), lat - latC);
+    float dist = length(dd);
+    float land = step(.5, texture2D(uMask, vec2((lonC + 180.) / 360., (90. - latC) / 180.)).r);
+    float degPx = (180. / PI) * px / max(z, .12);          // pixel footprint in degrees (foreshortened)
+    float dotR = D * .34;
+    float dotA = land * (1. - smoothstep(dotR - degPx * .9, dotR + degPx * .9, dist));
+    dotA *= smoothstep(.0, .18, z);                          // fade towards the limb
+    vec3 L = normalize(vec3(-.62, .7, .5));
+    float dif = clamp(dot(n, L), 0., 1.);
+    float lightT = smoothstep(-.25, .95, dif);
+    vec3 col = mix(shade, lit, lightT);
+    col = mix(col, mix(dotShade, dotLit, lightT), dotA);
+    float fres = pow(1. - z, 2.6);
+    col += mix(vec3(1.,.82,.62), vec3(1.,.45,.25), uDark) * fres * .35;
+    float spec = pow(max(dot(reflect(-L, n), vec3(0., 0., 1.)), 0.), 60.);
+    col += vec3(1.) * spec * mix(.32, .12, uDark);
+    float a = clamp((1. - r) / px + .5, 0., 1.);             // 1px anti-aliased edge
+    outc = vec4(col * a, a) + outc * (1. - a);
+  }
+  gl_FragColor = outc;
+}`;
+    const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { canvas.remove(); return; }
+    gl.useProgram(prog);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const U = (n) => gl.getUniformLocation(prog, n);
+    const uC = U('uC'), uR = U('uR'), uRotX = U('uRotX'), uRotY = U('uRotY'), uDark = U('uDark'), uDpr = U('uDpr');
 
+    // Land mask texture (Natural Earth 1:50m)
+    const tex = gl.createTexture();
+    let ready = false;
+    const img = new Image();
+    img.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, gl.LUMINANCE, gl.UNSIGNED_BYTE, img);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      ready = true;
+      canvas.classList.add('ready');
+      frame(performance.now());
+    };
+    img.src = '/assets/land-mask.png';
+
+    // Flag pins are real DOM elements: crisp emoji, soft shadows, no canvas text.
+    const layer = document.createElement('div');
+    layer.className = 'globe-pins';
+    layer.setAttribute('aria-hidden', 'true');
+    canvas.after(layer);
+    const pinEls = pins.map((p) => {
+      const el = document.createElement('span');
+      el.className = 'gpin';
+      el.textContent = p.flag;
+      layer.appendChild(el);
+      const la = p.lat * rad, lo = p.lng * rad;
+      return { el, v: [Math.cos(la) * Math.sin(lo), Math.sin(la), Math.cos(la) * Math.cos(lo)] };
+    });
+
+    const PAD = 60;
+    let w = 0, h = 0, dpr = 1, R = 0, X = 0, Y = 0;
     const resize = () => {
       const r = canvas.getBoundingClientRect();
       dpr = Math.min(2, window.devicePixelRatio || 1);
       w = r.width; h = r.height;
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
-      R = Math.min(w * 0.42, h * 0.42);
+      const small = w < 560;
+      // Canvas přesahuje scénu o PAD px, aby se měkká atmosféra kolem koule neořízla.
+      const sw = w - 2 * PAD, sh = h - 2 * PAD;
+      R = small ? Math.min(sw * 0.42, sh * 0.44) : Math.min(sw * 0.4, sh * 0.42);
+      X = PAD + sw * (small ? 0.4 : 0.37); Y = PAD + sh * 0.47;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      if (ready && !running) frame(performance.now());
     };
+    new ResizeObserver(resize).observe(canvas);
     resize();
-    window.addEventListener('resize', resize);
 
-    const project = (v) => {
+    const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+    const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : darkMQ.matches; };
+
+    // Rotation state: smooth auto-spin, drag with inertia that eases back to the auto speed.
+    const AUTO = reduce ? 0 : 0.16;          // rad / s
+    let rotY = -15 * rad, rotX = 22 * rad, vel = AUTO, dragging = false, lastX = 0, lastY = 0, lastT = 0, visible = true, running = false, prev = 0;
+
+    function project(v) {
       const cy = Math.cos(rotY), sy = Math.sin(rotY), cx = Math.cos(rotX), sx = Math.sin(rotX);
       const x1 = v[0] * cy + v[2] * sy, z1 = -v[0] * sy + v[2] * cy;
       const y2 = v[1] * cx - z1 * sx, z2 = v[1] * sx + z1 * cx;
-      return [w * 0.46 + x1 * R, h * 0.46 - y2 * R, z2];
-    };
+      return [X + x1 * R, Y - y2 * R, z2];
+    }
 
-    const dark = () => {
-      const t = document.documentElement.dataset.theme;
-      return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    };
-
-    // Same look as the app icon: a soft glossy sphere with tomato land dots.
-    const draw = () => {
-      const dk = dark();
-      const X = w * 0.46, Y = h * 0.46;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      // Soft contact shadow
-      const sh = ctx.createRadialGradient(X + R * 0.12, Y + R * 0.18, R * 0.6, X + R * 0.12, Y + R * 0.18, R * 1.12);
-      sh.addColorStop(0, dk ? 'rgba(0,0,0,0.5)' : 'rgba(120,50,20,0.22)');
-      sh.addColorStop(1, 'rgba(120,50,20,0)');
-      ctx.fillStyle = sh; ctx.beginPath(); ctx.arc(X + R * 0.12, Y + R * 0.18, R * 1.12, 0, Math.PI * 2); ctx.fill();
-      // Sphere body
-      const body = ctx.createRadialGradient(X - R * 0.35, Y - R * 0.42, R * 0.05, X, Y, R);
-      if (dk) { body.addColorStop(0, '#4a3a30'); body.addColorStop(0.55, '#2c221c'); body.addColorStop(1, '#1d1612'); }
-      else { body.addColorStop(0, '#ffffff'); body.addColorStop(0.5, '#fff5ea'); body.addColorStop(0.88, '#f8dcc2'); body.addColorStop(1, '#ecc09c'); }
-      ctx.fillStyle = body; ctx.beginPath(); ctx.arc(X, Y, R, 0, Math.PI * 2); ctx.fill();
-      // Land dots
-      const size = Math.max(1.6, R / 120);
-      for (const v of pts) {
-        const [x, y, z] = project(v);
-        if (z < 0) continue;
-        ctx.globalAlpha = Math.min(1, 0.2 + z * 1.05);
-        ctx.fillStyle = z > 0.55 ? '#ee4524' : '#f0603a';
-        const s = size * (0.55 + 0.45 * z);
-        ctx.beginPath(); ctx.arc(x, y, s / 1.6, 0, Math.PI * 2); ctx.fill();
+    function frame(t) {
+      const dt = Math.min(0.05, prev ? (t - prev) / 1000 : 0);
+      prev = t;
+      if (!dragging) {
+        vel += (AUTO - vel) * (1 - Math.exp(-dt * 1.6));
+        rotY += vel * dt;
       }
-      ctx.globalAlpha = 1;
-      // Rim light + specular highlight (the "plastic" gloss)
-      const rim = ctx.createLinearGradient(X - R, Y - R, X + R, Y + R);
-      rim.addColorStop(0, 'rgba(255,255,255,0.85)'); rim.addColorStop(0.5, 'rgba(255,255,255,0)'); rim.addColorStop(1, 'rgba(255,200,140,0.5)');
-      ctx.strokeStyle = rim; ctx.lineWidth = Math.max(2, R / 50); ctx.beginPath(); ctx.arc(X, Y, R - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
-      const spec = ctx.createRadialGradient(X - R * 0.42, Y - R * 0.5, 0, X - R * 0.42, Y - R * 0.5, R * 0.32);
-      spec.addColorStop(0, dk ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.95)'); spec.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = spec; ctx.beginPath(); ctx.arc(X - R * 0.42, Y - R * 0.5, R * 0.32, 0, Math.PI * 2); ctx.fill();
-      // Pins with flags
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const sorted = pinPts.map((p) => ({ p, s: project(p.v) })).sort((a, b) => a.s[2] - b.s[2]);
-      for (const { p, s } of sorted) {
-        const [x, y, z] = s;
-        if (z < 0.1) continue;
-        const k = 0.7 + 0.3 * z;
-        ctx.globalAlpha = Math.min(1, (z - 0.1) * 4);
-        ctx.shadowColor = 'rgba(92,48,18,0.35)'; ctx.shadowBlur = 12 * k; ctx.shadowOffsetY = 5 * k;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(x, y - 6 * k, 17 * k, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowColor = 'transparent';
-        ctx.beginPath(); ctx.moveTo(x - 6 * k, y + 8 * k); ctx.lineTo(x + 6 * k, y + 8 * k); ctx.lineTo(x, y + 16 * k); ctx.closePath(); ctx.fill();
-        ctx.font = `${Math.round(18 * k)}px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif`;
-        ctx.fillText(p.flag, x, y - 5 * k);
-        ctx.globalAlpha = 1;
+      gl.uniform2f(uC, X * dpr, (h - Y) * dpr);
+      gl.uniform1f(uR, R * dpr);
+      gl.uniform1f(uRotX, rotX);
+      gl.uniform1f(uRotY, rotY);
+      gl.uniform1f(uDark, isDark() ? 1 : 0);
+      gl.uniform1f(uDpr, dpr);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      for (const p of pinEls) {
+        const [x, y, z] = project(p.v);
+        const o = Math.max(0, Math.min(1, (z - 0.12) * 5));
+        p.el.style.opacity = o.toFixed(3);
+        p.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, calc(-100% - 6px)) scale(${(0.72 + 0.28 * z).toFixed(3)})`;
+        p.el.style.zIndex = String(Math.round(z * 100));
       }
-    };
+      running = visible && (AUTO > 0 || dragging || Math.abs(vel) > 0.001);
+      if (running) requestAnimationFrame(frame); else prev = 0;
+    }
 
-    const tick = () => {
-      if (visible) {
-        if (!dragging) rotY += vel;
-        draw();
-      }
-      requestAnimationFrame(tick);
-    };
-    draw();
-    if (!reduce) requestAnimationFrame(tick);
-
-    new IntersectionObserver((e) => { visible = e[0].isIntersecting; }).observe(canvas);
+    new IntersectionObserver((e) => {
+      visible = e[0].isIntersecting;
+      if (visible && ready && !running) { prev = 0; requestAnimationFrame(frame); }
+    }).observe(canvas);
+    document.addEventListener('visibilitychange', () => { prev = 0; });
 
     canvas.addEventListener('pointerdown', (e) => {
-      dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId);
+      dragging = true; lastX = e.clientX; lastY = e.clientY; lastT = performance.now();
+      canvas.setPointerCapture(e.pointerId);
+      if (!running) { prev = 0; requestAnimationFrame(frame); }
     });
     canvas.addEventListener('pointermove', (e) => {
       if (!dragging) return;
+      const now = performance.now();
       const dx = e.clientX - lastX, dy = e.clientY - lastY;
-      lastX = e.clientX; lastY = e.clientY;
-      rotY += dx * 0.006;
-      rotX = Math.max(-1.1, Math.min(1.1, rotX + dy * 0.004));
-      if (reduce) draw();
+      const k = 1 / R;                       // drag follows the finger on the sphere surface
+      rotY += dx * k;
+      rotX = Math.max(-1.0, Math.min(1.0, rotX + dy * k));
+      const dts = Math.max(0.008, (now - lastT) / 1000);
+      vel = vel * 0.6 + (dx * k / dts) * 0.4;
+      lastX = e.clientX; lastY = e.clientY; lastT = now;
     });
-    const stop = () => { dragging = false; };
+    const stop = () => { dragging = false; vel = Math.max(-6, Math.min(6, vel)); };
     canvas.addEventListener('pointerup', stop);
     canvas.addEventListener('pointercancel', stop);
   }
