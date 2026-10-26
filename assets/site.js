@@ -72,24 +72,69 @@
     if (typing) setTimeout(() => typing.remove(), delay);
   }
 
-  /* Scrollytelling: the sticky phone follows the active step. */
-  const steps = document.querySelectorAll('.story .step');
-  const shots = document.querySelectorAll('.story .sticky .screen img');
-  if (steps.length && shots.length) {
-    const sio = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          const i = Number(e.target.dataset.index);
-          steps.forEach((s) => s.classList.toggle('active', s === e.target));
-          shots.forEach((img, j) => img.classList.toggle('on', j === i));
-          const phone = document.querySelector('.story .sticky .phone');
-          if (phone) phone.style.transform = `rotate(${[-2, 2, -1.5, 1.5][i] ?? 0}deg)`;
-        }
-      },
-      { rootMargin: '-45% 0px -45% 0px' },
-    );
-    steps.forEach((s) => sio.observe(s));
+  /* Scrollytelling: the sticky phone tilts in 3D with the scroll, screens wipe in like an app
+     switching views, and two cards per step float out of the phone. Everything is lerped in one
+     rAF loop, so the motion stays buttery even with coarse wheel steps. */
+  const story = document.querySelector('.story');
+  const stage = story?.querySelector('.stage3d');
+  if (story && stage) {
+    const steps = [...story.querySelectorAll('.step')];
+    const shots = [...stage.querySelectorAll('.screen img')];
+    const groups = [...stage.querySelectorAll('.callouts')];
+    let current = 0, target = { ry: 0, rx: 0, y: 0, local: 0 }, now = { ry: 0, rx: 0, y: 0, local: 0 }, running = false;
+    const setActive = (i) => {
+      if (i === current) return;
+      current = i;
+      steps.forEach((st, j) => st.classList.toggle('active', j === i));
+      shots.forEach((img, j) => { img.classList.toggle('on', j === i); img.classList.toggle('past', j < i); });
+      groups.forEach((g, j) => g.classList.toggle('on', j === i));
+    };
+    const measure = () => {
+      const mid = window.innerHeight / 2;
+      let best = 0, bestD = Infinity;
+      steps.forEach((st, j) => {
+        const r = st.getBoundingClientRect();
+        const d = Math.abs(r.top + r.height / 2 - mid);
+        if (d < bestD) { bestD = d; best = j; }
+      });
+      const r = steps[best].getBoundingClientRect();
+      const local = Math.max(-0.5, Math.min(0.5, (mid - (r.top + r.height / 2)) / r.height));
+      setActive(best);
+      const side = best % 2 ? 1 : -1;
+      target = { ry: side * 9 - local * 16, rx: local * 7, y: -local * 24, local };
+    };
+    const tick = () => {
+      const k = reduce ? 1 : 0.1;
+      let moving = false;
+      for (const key of Object.keys(target)) {
+        now[key] += (target[key] - now[key]) * k;
+        if (Math.abs(target[key] - now[key]) > 0.01) moving = true;
+      }
+      stage.style.transform = `translateY(${now.y.toFixed(2)}px) rotateY(${now.ry.toFixed(2)}deg) rotateX(${now.rx.toFixed(2)}deg)`;
+      stage.style.setProperty('--local', now.local.toFixed(3));
+      running = moving;
+      if (moving) requestAnimationFrame(tick);
+    };
+    const onScroll = () => {
+      measure();
+      if (!running) { running = true; requestAnimationFrame(tick); }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    onScroll();
+  }
+
+  /* Hero phone drifts up and straightens as you scroll away from the hero. */
+  const heroPhone = document.querySelector('.stage .hero-phone');
+  if (heroPhone && !reduce) {
+    let queued = false;
+    const update = () => {
+      queued = false;
+      const p = Math.min(1, window.scrollY / window.innerHeight);
+      heroPhone.style.setProperty('--sy', `${(-p * 90).toFixed(1)}px`);
+      heroPhone.style.setProperty('--sr', `${(p * 9).toFixed(2)}deg`);
+    };
+    window.addEventListener('scroll', () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
   }
 
   /* Store buttons: before launch they open a friendly “coming soon” dialog. */

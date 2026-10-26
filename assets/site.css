@@ -120,11 +120,14 @@ p { margin: 0; }
 }
 .lang summary::-webkit-details-marker { display: none; }
 .lang summary svg { width: 16px; height: 16px; }
+.flag { display: inline-block; width: 20px; height: 20px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.15); flex: none; }
+.lang summary .flag { width: 18px; height: 18px; }
 .lang ul {
   position: absolute; right: 0; top: calc(100% + 10px); list-style: none; margin: 0; padding: 8px; min-width: 200px;
   background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--sh-2);
 }
-.lang li a { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 11px; color: var(--text); text-decoration: none; font-size: 0.95rem; }
+.lang li a span { flex: 1; }
+.lang li a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 11px; color: var(--text); text-decoration: none; font-size: 0.95rem; }
 .lang li a:hover { background: var(--surface-2); }
 .lang li a[aria-current='true'] { color: var(--tomato); font-weight: 700; }
 .lang li a small { color: var(--muted); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.08em; }
@@ -210,7 +213,7 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .globe-hint svg { width: 16px; height: 16px; }
 .stage .hero-phone { position: absolute; right: 0; bottom: 4%; z-index: 3; width: clamp(210px, 19.5vw, 282px); }
 .hero-phone, .float-chip, .stage .float { will-change: transform; }
-.stage .hero-phone { transform: translate3d(var(--px, 0), var(--py, 0), 0) rotate(5deg); }
+.stage .hero-phone { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + var(--sy, 0px)), 0) rotate(calc(5deg - var(--sr, 0deg))); }
 .float-chip {
   position: absolute; z-index: 4; display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 7px 7px; border-radius: 999px;
   background: var(--glass); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6);
@@ -273,35 +276,63 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .receipt .paper { padding: 24px 22px 40px; }
 }
 
-/* ── iPhone 16 Pro (Black Titanium). Proportions from the real device: 402×874 pt screen, 18 pt bezel.
+/* ── iPhone 16 Pro (Black Titanium). Real proportions: 402×874 pt screen, ~3.35 % border per side
+   (0.8 % titanium band + 2.55 % black bezel), screen corner radius 13.7 % of its width.
    .phone is the size container, so every cqi below is a share of the phone's own width. ── */
-.phone { position: relative; container-type: inline-size; aspect-ratio: 438 / 910; }
+.phone { position: relative; container-type: inline-size; aspect-ratio: 100 / 209.55; }
 .phone .body {
-  position: absolute; inset: 0; border-radius: 18.3cqi; padding: 0.95cqi;
+  position: absolute; inset: 0; border-radius: 16.15cqi; padding: 0.8cqi;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 8%, rgba(255,255,255,0) 92%, rgba(255,255,255,.14)),
-    linear-gradient(90deg, #4a4a4c 0%, #1d1d1f 3%, #3a3a3c 50%, #1d1d1f 97%, #4a4a4c 100%);
+    linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 6%, rgba(255,255,255,0) 94%, rgba(255,255,255,.18) 100%),
+    linear-gradient(90deg, #5a5a5d 0%, #2b2b2e 2.2%, #1b1b1d 50%, #2b2b2e 97.8%, #5a5a5d 100%);
   box-shadow:
-    inset 0 0 0 0.18cqi rgba(255, 255, 255, 0.28), inset 0 0 0 0.5cqi rgba(0, 0, 0, 0.5),
-    0 2px 3px rgba(20, 10, 4, 0.18), 0 22px 30px -14px rgba(40, 18, 6, 0.45), 0 60px 70px -40px rgba(60, 24, 6, 0.45);
+    inset 0 0 0 0.12cqi rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 18px 28px -16px rgba(20, 12, 8, 0.45),
+    0 48px 80px -36px rgba(20, 12, 8, 0.5);
 }
-.phone .bezel {
-  position: relative; height: 100%; border-radius: 17.4cqi; padding: 3.15cqi; background: #000;
-  box-shadow: inset 0 0 0 0.3cqi #121212, inset 0 0 0 0.6cqi #050505;
+.phone .bezel { position: relative; height: 100%; border-radius: 15.35cqi; padding: 2.55cqi; background: #000; box-shadow: inset 0 0 0 0.25cqi #0d0d0e; }
+.phone .screen { position: relative; height: 100%; border-radius: 12.8cqi; overflow: hidden; background: #000; transform: translateZ(0); isolation: isolate; }
+.phone .screen img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  transition: opacity 0.7s ease, transform 0.9s cubic-bezier(.2,.7,.2,1), clip-path 0.9s cubic-bezier(.65,0,.25,1);
 }
-.phone .screen { position: relative; height: 100%; border-radius: 14.2cqi; overflow: hidden; background: #000; transform: translateZ(0); }
-.phone .screen::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2; border-radius: inherit;
-  background: linear-gradient(118deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.035) 24%, rgba(255,255,255,0) 38%);
+.phone .screen img:not(.on) { opacity: 0; }
+.phone .glare {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(125deg, rgba(255,255,255,.09) 0%, rgba(255,255,255,0) 22%);
+  box-shadow: inset 0 0 0 0.2cqi rgba(255,255,255,.05);
 }
-.phone .screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 0.6s ease, transform 0.8s cubic-bezier(.2,.7,.2,1); }
-.phone .screen img:not(.on) { opacity: 0; transform: scale(1.03); }
-.phone .b { position: absolute; width: 0.9cqi; border-radius: 0.5cqi; background: linear-gradient(90deg, #111 0%, #5a5a5c 45%, #2a2a2c 100%); }
-.phone .action { left: -0.75cqi; top: 18.5%; height: 6.2%; }
-.phone .vol-up { left: -0.75cqi; top: 27.5%; height: 11%; }
-.phone .vol-down { left: -0.75cqi; top: 40.5%; height: 11%; }
-.phone .power { right: -0.75cqi; top: 30%; height: 17%; transform: scaleX(-1); }
-.phone .camera { right: -0.45cqi; top: 62%; height: 9%; width: 0.6cqi; background: linear-gradient(90deg, #2a2a2c, #0c0c0c); }
+.phone .b { position: absolute; width: 0.75cqi; border-radius: 0.4cqi; background: linear-gradient(90deg, #0e0e0f 0%, #4b4b4e 50%, #1d1d1f 100%); }
+.phone .action { left: -0.6cqi; top: 18%; height: 6%; }
+.phone .vol-up { left: -0.6cqi; top: 27%; height: 10.5%; }
+.phone .vol-down { left: -0.6cqi; top: 39.5%; height: 10.5%; }
+.phone .power { right: -0.6cqi; top: 29.5%; height: 16%; transform: scaleX(-1); }
+.phone .camera { right: -0.35cqi; top: 61%; height: 8.5%; width: 0.5cqi; background: linear-gradient(90deg, #232325, #0a0a0b); }
+
+/* ── Food mist: soft, blurred hints of dishes behind some sections ── */
+.mist {
+  position: absolute; z-index: 0; pointer-events: none; aspect-ratio: 1; object-fit: cover; border-radius: 50%;
+  filter: blur(var(--blur, 22px)) saturate(1.25); opacity: var(--o, 0.4);
+  -webkit-mask: radial-gradient(closest-side, #000 45%, transparent 100%); mask: radial-gradient(closest-side, #000 45%, transparent 100%);
+}
+:root[data-theme='dark'] .mist { opacity: calc(var(--o, 0.4) * 0.7); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .mist { opacity: calc(var(--o, 0.4) * 0.7); } }
+.m-hero-1 { width: 520px; left: -170px; top: 52%; --blur: 26px; --o: 0.42; }
+.m-hero-2 { width: 380px; right: 34%; top: -150px; --blur: 30px; --o: 0.3; }
+.m-story { width: 560px; right: -200px; top: 18%; --blur: 34px; --o: 0.3; }
+.m-chef { width: 460px; left: -180px; top: 8%; --blur: 26px; --o: 0.34; }
+.m-price { width: 520px; right: -160px; bottom: -160px; --blur: 28px; --o: 0.32; }
+.m-cuisines-1 { width: 420px; left: -160px; top: -60px; --blur: 30px; --o: 0.3; }
+.m-cuisines-2 { width: 360px; right: -120px; bottom: -40px; --blur: 30px; --o: 0.28; }
+.chef, .price, .cuisines { position: relative; overflow: clip; }
+.story { position: relative; }
+.story > .wrap, .chef > .wrap, .price > .wrap, .cuisines > .wrap { position: relative; z-index: 1; }
+@media (max-width: 600px) {
+  .mist { --blur: 20px; }
+  .m-hero-1 { width: 320px; left: -140px; top: 60%; } .m-hero-2 { width: 260px; right: -60px; top: -90px; }
+  .m-story, .m-chef, .m-price, .m-cuisines-1, .m-cuisines-2 { width: 300px; }
+}
 
 /* ── Stats ── */
 .stats { position: relative; z-index: 3; margin-top: -40px; }
@@ -336,7 +367,47 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .story { padding: 60px 0 100px; }
 .story .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
 .story .sticky { position: sticky; top: 11vh; height: 78vh; display: grid; place-items: center; }
-.story .sticky .phone { width: min(340px, calc(78vh * 438 / 910)); transform: rotate(-2deg); transition: transform 0.8s cubic-bezier(.2,.7,.2,1); }
+.story .sticky { perspective: 1600px; }
+.story .stage3d { position: relative; transform-style: preserve-3d; will-change: transform; }
+.story .sticky .phone { width: min(330px, calc(76vh / 2.0955)); }
+/* Screens wipe in from the bottom like an app switching views. */
+.story .sticky .screen img { clip-path: inset(100% 0 0 0); transform: scale(1.08); opacity: 1; }
+.story .sticky .screen img.on { clip-path: inset(0 0 0 0); transform: none; }
+.story .sticky .screen img.past { clip-path: inset(0 0 0 0); transform: scale(0.94); opacity: 0; }
+.callouts { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; }
+.co {
+  position: absolute; display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 10px; border-radius: 20px;
+  background: var(--glass); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: var(--sh-2), var(--hl); white-space: nowrap; color: var(--text);
+  opacity: 0; transform: translate3d(var(--dx, 0), 24px, 60px) scale(0.85);
+  transition: opacity 0.45s ease, transform 0.75s cubic-bezier(.2,.9,.25,1.35);
+}
+.callouts.on .co { opacity: 1; transform: translate3d(0, calc(var(--local, 0) * -46px), 60px) scale(1); }
+.callouts.on .co.b { transition-delay: 0.14s; transform: translate3d(0, calc(var(--local, 0) * 38px), 90px) scale(1); }
+.co.a { left: -46%; top: 18%; --dx: 40px; }
+.co.b { right: -44%; bottom: 20%; --dx: -40px; }
+.co b { font-weight: 800; }
+.co small { display: block; font-size: 0.72rem; font-weight: 600; color: var(--text-2); }
+.co-dish > img { width: 48px; height: 48px; border-radius: 14px; object-fit: cover; }
+.co-dish span { display: grid; line-height: 1.2; }
+.co-dish b { font: 700 1rem/1.2 'Fraunces', serif; font-variation-settings: 'SOFT' 100; }
+.co-dish small .flag { width: 13px; height: 13px; vertical-align: -2px; }
+.co-stat { flex-direction: column; align-items: flex-start; gap: 0; padding: 12px 18px; }
+.co-stat b { font: 700 2rem/1 'Fraunces', serif; background: var(--brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.co-stat span { font-size: 0.82rem; font-weight: 700; color: var(--text-2); }
+.co-flags { flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 16px; font-weight: 600; font-size: 0.88rem; }
+.co-flags .flags { display: flex; }
+.co-flags .flags img { width: 28px; height: 28px; border-radius: 50%; margin-right: -3px; box-shadow: 0 0 0 2px var(--surface); }
+.co-bubble { padding: 12px 16px; border-radius: 20px 20px 20px 6px; color: #fff; font-weight: 700; background: var(--brand); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 14px 26px -12px rgba(201,47,23,.7); }
+.co-plan { color: #fff; background: linear-gradient(150deg, var(--c1), var(--c2)); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 16px 30px -14px var(--c1); }
+.co-plan span { display: grid; } .co-plan small { color: rgba(255,255,255,.85); }
+.co-plan .i3d { --s: 40px; filter: drop-shadow(0 6px 8px rgba(0,0,0,.25)); }
+.co-kcal svg { width: 44px; height: 44px; transform: rotate(-90deg); }
+.co-kcal circle { fill: none; stroke: color-mix(in srgb, var(--text) 10%, transparent); stroke-width: 5; }
+.co-kcal circle.arc { stroke: #3cc173; stroke-linecap: round; stroke-dasharray: 113; stroke-dashoffset: 113; transition: stroke-dashoffset 1.2s cubic-bezier(.2,.7,.2,1) 0.3s; }
+.callouts.on .co-kcal circle.arc { stroke-dashoffset: 4; }
+.co-kcal span { display: grid; } .co-kcal b { font: 700 1.3rem/1 'Fraunces', serif; }
+@media (max-width: 1180px) { .co.a { left: -30%; } .co.b { right: -28%; } }
 .story .steps { display: grid; }
 .story .step { min-height: 80vh; display: grid; align-content: center; gap: 18px; opacity: 0.22; transition: opacity 0.5s; }
 .story .step.active { opacity: 1; }
@@ -352,6 +423,10 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .story .step { min-height: 0; opacity: 1; padding: 36px 0; }
   .story .step .mobile-shot { display: block; width: 250px; margin: 18px auto 0; }
   .story .step .mobile-shot .screen img { opacity: 1; transform: none; }
+  /* Na mobilu telefon „vyplave“ ze stolu: náklon dozadu → rovně. */
+  .story .step .mobile-shot[data-reveal] { perspective: 900px; opacity: 1; transform: none; }
+  .story .step .mobile-shot[data-reveal] .phone { transform: rotateX(28deg) translateY(70px) scale(0.9); opacity: 0; transition: transform 1.1s cubic-bezier(.2,.8,.2,1), opacity 0.7s ease; }
+  .story .step .mobile-shot[data-reveal].in .phone { transform: rotateX(0) translateY(0) scale(1); opacity: 1; }
 }
 
 /* ── Chef ── */
@@ -518,7 +593,8 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .site-footer nav a:hover { color: var(--text); }
 .site-footer .brand img { width: 36px; height: 36px; border-radius: 10px; }
 .langs { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.langs a { color: var(--text-2); text-decoration: none; font-size: 0.9rem; }
+.langs a { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); text-decoration: none; font-size: 0.9rem; }
+.langs .flag { width: 16px; height: 16px; }
 .langs a[aria-current='true'] { color: var(--tomato); font-weight: 700; }
 .credits { color: var(--muted); font-size: 0.84rem; max-width: 90ch; }
 .credits details summary { cursor: pointer; color: var(--text-2); }
