@@ -199,7 +199,7 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .hero .status { display: inline-flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 0.93rem; font-weight: 500; }
 
 .stage { position: relative; height: min(80vh, 740px); min-height: 540px; }
-.stage .hero-phone { position: absolute; right: 0; bottom: 4%; z-index: 88; width: clamp(210px, 19.5vw, 282px); }
+.stage .hero-phone { position: absolute; right: -3%; bottom: 4%; z-index: 88; width: clamp(200px, 18vw, 264px); }
 .hero-phone, .stage .hero-phone { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + var(--sy, 0px)), 0) rotate(calc(5deg - var(--sr, 0deg))); }
 .stage .float { position: absolute; z-index: 2; transform: translate3d(var(--px, 0), var(--py, 0), 0); }
 .stage .f1 { --s: 86px; left: 46%; top: 2%; }
@@ -244,50 +244,80 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 }
 
 
-/* ── Talíře kuchyní kolem telefonu (prstenec řídí site.js) ── */
-.plates { position: absolute; inset: 0; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
-.plates.grabbing { cursor: grabbing; }
-.stage:not(.ready) .plate { opacity: 0; }
-.plate {
-  position: absolute; left: 0; top: 0; width: var(--s, 160px); height: var(--s, 160px); padding: 0; border: 0; border-radius: 50%;
-  cursor: inherit; transform-origin: 50% 50%; will-change: transform; transition: opacity 0.6s ease;
-  background: radial-gradient(circle at 50% 50%, #fff 0 64%, #f3ece4 66%, #fff 71%, #f6efe7 100%);
-  box-shadow:
-    inset 0 -0.06em 0.18em rgba(120, 80, 50, 0.18), inset 0 0.08em 0.12em rgba(255, 255, 255, 0.9),
-    0 0.03em 0.05em rgba(60, 30, 10, 0.18), 0 1.2em 1.8em -0.7em rgba(70, 35, 12, 0.45), 0 2.4em 3.4em -1.6em rgba(201, 47, 23, 0.25);
-  font-size: calc(var(--s, 160px) / 10);
+/* ── Otočný stůl (lazy Susan) s talíři kuchyní. Disk je skutečně ve 3D (perspektiva + rotateX),
+   talíře na něm leží; rotaci, setrvačnost a „ruletu“ řídí site.js (proměnná --rot). ── */
+.susan {
+  --tilt: 60deg; --d: 520px; --r: calc(var(--d) * 0.37); --ps: calc(var(--d) * 0.215);
+  position: absolute; left: var(--x, 40%); top: var(--y, 56%); width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
+  perspective: calc(var(--d) * 2.6); perspective-origin: 50% 20%; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none;
 }
-.plate img { position: absolute; inset: 13%; width: 74%; height: 74%; border-radius: 50%; object-fit: cover; pointer-events: none; }
-.plate::after {
-  content: ''; position: absolute; inset: 13%; border-radius: 50%; pointer-events: none;
-  background: rgba(24, 14, 8, var(--shade, 0));
-  box-shadow: inset 0 0.18em 0.35em rgba(0, 0, 0, 0.28), inset 0 -0.1em 0.2em rgba(255, 255, 255, 0.25);
+.susan.grabbing { cursor: grabbing; }
+.stage:not(.ready) .susan { opacity: 0; }
+.stage .susan { transition: opacity 0.8s ease; }
+.susan-shadow {
+  position: absolute; left: 6%; right: 6%; top: 50%; height: 48%; border-radius: 50%; transform: translateY(-12%);
+  background: radial-gradient(closest-side, rgba(70, 30, 8, 0.36), rgba(70, 30, 8, 0.12) 60%, transparent); filter: blur(14px);
 }
-.plate .badge {
-  position: absolute; right: 1%; top: 3%; z-index: 1; width: 2.7em; height: 2.7em; display: grid; place-items: center; border-radius: 50%;
-  font-size: 1em; line-height: 1; background: #fff; box-shadow: 0 0.12em 0.4em rgba(60, 30, 10, 0.25); transition: transform 0.4s cubic-bezier(.3, 1.6, .5, 1);
+.susan-disk { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(var(--tilt)); }
+/* Bok disku (tloušťka) a samotná deska. */
+.susan-disk::before, .susan-disk::after { content: ''; position: absolute; inset: 0; border-radius: 50%; }
+.susan-disk::before { transform: translateZ(calc(var(--d) * -0.035)); background: linear-gradient(90deg, #c9a27e, #e6cdb2 30%, #f2e2cf 50%, #e1c4a6 72%, #b98e68); box-shadow: 0 0 0 1px rgba(120, 70, 30, 0.25); }
+.susan-disk::after {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 17%, rgba(150, 100, 60, 0.12) 17.4%, transparent 18.2%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(160, 110, 70, 0.045) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 38% 30%, #fffdf9 0%, #fbf3e9 38%, #f1e1cd 78%, #e6cfb4 100%);
+  box-shadow: inset 0 0 0 calc(var(--d) * 0.012) rgba(255, 255, 255, 0.85), inset 0 calc(var(--d) * -0.03) calc(var(--d) * 0.06) rgba(150, 95, 50, 0.22);
 }
-.plate .badge { font-size: calc(var(--s, 160px) / 12); } .plate .badge { line-height: 1; }
-.plate.front { box-shadow:
-    0 0 0 0.25em color-mix(in srgb, var(--accent) 85%, #fff), inset 0 -0.06em 0.18em rgba(120, 80, 50, 0.18),
-    0 1.4em 2.2em -0.8em rgba(70, 35, 12, 0.5), 0 2.8em 4em -1.6em color-mix(in srgb, var(--accent) 60%, transparent); }
-.plate.front .badge { transform: scale(1.18); }
-.plate:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
-:root[data-theme='dark'] .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); } }
+.susan-spin { position: absolute; inset: 0; z-index: 1; transform-style: preserve-3d; transform: translateZ(1px) rotateZ(var(--rot, 0deg)); }
+.susan-hub {
+  position: absolute; left: 50%; top: 50%; width: 22%; height: 22%; margin: -11% 0 0 -11%; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 40% 35%, #fff, #f6ece0); box-shadow: inset 0 -3px 8px rgba(150, 95, 50, 0.25), 0 6px 14px -6px rgba(90, 45, 15, 0.45);
+  transform: rotateZ(calc(var(--rot, 0deg) * -1));
+}
+.susan-hub img { width: 70%; height: 70%; border-radius: 22%; }
+.susan .plate {
+  position: absolute; left: 50%; top: 50%; width: var(--ps); height: var(--ps); margin: calc(var(--ps) / -2) 0 0 calc(var(--ps) / -2);
+  padding: 0; border: 0; border-radius: 50%; cursor: inherit; font-size: calc(var(--ps) / 10);
+  transform: rotateZ(var(--a)) translateY(calc(var(--r) * -1)) rotateZ(calc(var(--a) * -1 - var(--rot, 0deg))) translateZ(var(--lift, 2px));
+  transition: --lift 0.4s ease, box-shadow 0.4s ease;
+  background: radial-gradient(circle, #fff 0 64%, #f1e8dd 66.5%, #fff 72%, #f4ece2 100%);
+  box-shadow: inset 0 -0.1em 0.25em rgba(120, 80, 50, 0.2), 0 0.25em 0.4em rgba(80, 40, 12, 0.28), 0 0.6em 1.1em -0.2em rgba(80, 40, 12, 0.22);
+}
+@property --lift { syntax: '<length>'; inherits: false; initial-value: 2px; }
+.susan .plate img { position: absolute; inset: 13%; width: 74%; height: 74%; border-radius: 50%; object-fit: cover; pointer-events: none; }
+.susan .plate::after { content: ''; position: absolute; inset: 13%; border-radius: 50%; pointer-events: none; box-shadow: inset 0 0.18em 0.35em rgba(0, 0, 0, 0.28); }
+.susan .plate .badge {
+  position: absolute; right: -4%; top: -2%; z-index: 1; width: 2.9em; height: 2.9em; display: grid; place-items: center; border-radius: 50%;
+  font-size: calc(var(--ps) / 7.5); line-height: 1; background: #fff; box-shadow: 0 0.12em 0.35em rgba(60, 30, 10, 0.3);
+}
+.susan .plate .badge img.mark { width: 74%; height: 74%; border-radius: 50%; }
+.susan .plate.front { --lift: calc(var(--d) * 0.06); box-shadow:
+    0 0 0 0.3em color-mix(in srgb, var(--accent) 88%, #fff), inset 0 -0.1em 0.25em rgba(120, 80, 50, 0.2),
+    0 1.6em 1.6em -0.6em rgba(70, 30, 8, 0.35), 0 0 2.4em color-mix(in srgb, var(--accent) 45%, transparent); }
+.susan .plate:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+:root[data-theme='dark'] .susan-disk::after { background: radial-gradient(circle at 38% 30%, #3a322c, #2a2420 70%, #201b18); }
+:root[data-theme='dark'] .susan-disk::before { background: linear-gradient(90deg, #120f0d, #2b2420 50%, #120f0d); }
+:root[data-theme='dark'] .susan .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .susan-disk::after { background: radial-gradient(circle at 38% 30%, #3a322c, #2a2420 70%, #201b18); }
+  :root:not([data-theme='light']) .susan-disk::before { background: linear-gradient(90deg, #120f0d, #2b2420 50%, #120f0d); }
+  :root:not([data-theme='light']) .susan .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); }
+}
 .plate-label {
   position: absolute; z-index: 120; transform: translate(-50%, 0); display: grid; justify-items: center; gap: 1px; pointer-events: none;
-  padding: 8px 18px; border-radius: 999px; white-space: nowrap; text-align: center;
-  background: color-mix(in srgb, var(--surface, #fff) 82%, transparent); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: 0 10px 30px -12px rgba(60, 30, 10, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding: 9px 20px 10px; border-radius: 22px; white-space: nowrap; text-align: center;
+  background: color-mix(in srgb, var(--surface, #fff) 84%, transparent); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 12px 32px -12px rgba(60, 30, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.plate-label b { font-size: 1rem; } .plate-label small { font-size: 0.78rem; color: var(--text-2); font-weight: 600; }
-.plate-label:empty, .plate-label b:empty { display: none; }
-.plate-label.pop { animation: labelPop 0.45s cubic-bezier(.3, 1.4, .5, 1); }
-@keyframes labelPop { from { transform: translate(-50%, 6px) scale(0.92); opacity: 0.4; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
+.plate-label .today { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.plate-label b { font-size: 1.05rem; display: inline-flex; align-items: center; gap: 6px; } .plate-label small { font-size: 0.78rem; color: var(--text-2); font-weight: 600; }
+.plate-label b:empty { display: none; }
+.plate-label.pop { animation: labelPop 0.5s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes labelPop { from { transform: translate(-50%, 8px) scale(0.9); opacity: 0.3; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
 .plate-hint { position: absolute; left: 6%; bottom: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--muted); pointer-events: none; }
 .plate-hint svg { width: 16px; height: 16px; }
-@media (max-width: 600px) { .plate-hint { left: 50%; transform: translateX(-50%); bottom: -4px; white-space: nowrap; } .plate-label { padding: 6px 14px; } .plate-label b { font-size: 0.9rem; } }
+@media (max-width: 600px) { .plate-hint { left: 50%; transform: translateX(-50%); bottom: -4px; white-space: nowrap; } .plate-label { padding: 7px 14px; } .plate-label b { font-size: 0.95rem; } }
 
 /* ── iPhone 16 Pro (Black Titanium). Real proportions: 402×874 pt screen, ~3.35 % border per side
    (0.8 % titanium band + 2.55 % black bezel), screen corner radius 13.7 % of its width.
@@ -692,3 +722,7 @@ details.faq p { margin-top: 10px; }
   [data-reveal] { opacity: 1; transform: none; }
   .track { animation: none; }
 }
+
+/* Znak arabského světa (ع) místo vlajky — vlastní obrázek ve velikosti emoji. */
+img.mark { display: inline-block; width: 1.1em; height: 1.1em; border-radius: 24%; vertical-align: -0.15em; object-fit: cover; }
+.plate .badge img.mark { width: 70%; height: 70%; border-radius: 50%; vertical-align: middle; }

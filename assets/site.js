@@ -1,4 +1,4 @@
-/* Dishista — interactions: plate ring, parallax, rotating headline, reveals, counters, story, chat, store dialog. */
+/* Dishista — interactions: turntable, parallax, rotating headline, reveals, counters, story, chat, store dialog. */
 (() => {
   const cfg = window.DISHISTA || {};
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -173,127 +173,140 @@
     hero.addEventListener('pointerleave', () => { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(step); });
   }
 
-  /* ── Talíře kuchyní: prstenec jídel kolem telefonu. Pomalu se točí, tažením se roztočí
-     (se setrvačností), klepnutím na talíř se natočí dopředu a ukáže, o jakou kuchyni jde. ── */
-  const ringEl = document.querySelector('.plates');
-  if (ringEl) initPlates(ringEl);
+  /* ── Otočný stůl s talíři kuchyní: tažením kolem středu se roztočí, se setrvačností dojede
+     a zastaví se vždy přesně na jedné kuchyni (talíř vpředu se zvedne a ukáže, co dnes vaříš).
+     V klidu se stůl pomalu otáčí sám. ── */
+  const susanEl = document.querySelector('.susan');
+  if (susanEl) initSusan(susanEl);
 
-  function initPlates(ring) {
-    const stageEl = ring.closest('.stage');
-    const plates = [...ring.querySelectorAll('.plate')];
+  function initSusan(susan) {
+    const stageEl = susan.closest('.stage');
+    const spin = susan.querySelector('.susan-spin');
+    const plates = [...susan.querySelectorAll('.plate')];
     const label = stageEl.querySelector('.plate-label');
     const N = plates.length;
-    const TAU = Math.PI * 2;
-    const AUTO = reduce ? 0 : 0.11;              // rad / s
-    let rot = 0, vel = AUTO, dragging = false, moved = 0, lastX = 0, lastT = 0, tween = null, holdUntil = 0;
-    let W = 0, H = 0, S = 0, CX = 0, CY = 0, RX = 0, RY = 0, front = -1, running = false, visible = true, prev = 0;
+    const STEP = 360 / N;
+    const TILT = Math.cos((60 * Math.PI) / 180);
+    const IDLE = reduce ? 0 : 7;                     // °/s, pomalé samovolné otáčení
+    let rot = 0, vel = IDLE, dragging = false, moved = 0, lastA = 0, lastT = 0, holdUntil = 0, snap = null;
+    let front = -1, running = false, visible = true, prev = 0, D = 0, cx = 0, cy = 0;
 
-    const resize = () => {
+    const layout = () => {
       const r = stageEl.getBoundingClientRect();
-      W = r.width; H = r.height;
-      const small = W < 560;
-      S = Math.max(80, Math.min(small ? W * 0.27 : W * 0.24, 172));
-      CX = W * (small ? 0.42 : 0.38); CY = H * (small ? 0.42 : 0.44);
-      RX = W * (small ? 0.36 : 0.34); RY = H * (small ? 0.15 : 0.17);
-      ring.style.setProperty('--s', `${S.toFixed(1)}px`);
-      if (label) { label.style.left = `${CX}px`; label.style.top = `${CY + RY + S * 0.56}px`; }
-      draw();
+      const small = r.width < 560;
+      D = Math.min(r.width * (small ? 0.96 : 0.86), r.height * (small ? 1.05 : 1.04), 600);
+      const x = r.width * (small ? 0.4 : 0.36), y = r.height * (small ? 0.5 : 0.5);
+      susan.style.setProperty('--d', `${D.toFixed(0)}px`);
+      susan.style.setProperty('--x', `${x.toFixed(0)}px`);
+      susan.style.setProperty('--y', `${y.toFixed(0)}px`);
+      cx = x; cy = y;
+      if (label) { label.style.left = `${x}px`; label.style.top = `${y + D * TILT * 0.5 + D * 0.05}px`; }
     };
 
-    const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+    // Úhel ukazatele kolem středu disku (y se přepočítá z nakloněné roviny).
+    const angleAt = (e) => {
+      const r = stageEl.getBoundingClientRect();
+      return (Math.atan2((e.clientY - r.top - cy) / TILT, e.clientX - r.left - cx) * 180) / Math.PI;
+    };
+    const wrap = (d) => ((((d + 180) % 360) + 360) % 360) - 180;
+    // Který talíř je právě vpředu (u diváka = úhel 180° v rovině disku).
+    const frontIndex = () => {
+      let best = 0, bd = 1e9;
+      for (let i = 0; i < N; i++) {
+        const d = Math.abs(wrap(i * STEP + rot - 180));
+        if (d < bd) { bd = d; best = i; }
+      }
+      return best;
+    };
 
     function draw() {
-      let best = 0, bestD = -2;
-      plates.forEach((el, i) => {
-        const th = rot + (i / N) * TAU;
-        const c = Math.cos(th);
-        const d = (c + 1) / 2;                       // 0 vzadu … 1 vpředu
-        const x = CX + RX * Math.sin(th), y = CY + RY * c;
-        const k = 0.42 + 0.58 * d;
-        el.style.transform = `translate3d(${(x - S / 2).toFixed(1)}px, ${(y - S / 2).toFixed(1)}px, 0) scale(${k.toFixed(3)})`;
-        el.style.zIndex = String(Math.round(d * 100));
-        el.style.setProperty('--shade', ((1 - d) * 0.42).toFixed(3));
-        if (c > bestD) { bestD = c; best = i; }
-      });
-      if (best !== front) {
+      spin.style.setProperty('--rot', `${rot.toFixed(2)}deg`);
+      plates.forEach((el) => el.style.setProperty('--rot', `${rot.toFixed(2)}deg`));
+      const f = frontIndex();
+      if (f !== front) {
         if (front >= 0) plates[front].classList.remove('front');
-        front = best;
-        plates[front].classList.add('front');
+        front = f;
+        plates[f].classList.add('front');
         if (label) {
-          label.querySelector('b').textContent = plates[front].dataset.label;
-          label.querySelector('small').textContent = plates[front].dataset.recipes;
+          const pl = plates[f];
+          const flag = pl.querySelector('.badge')?.innerHTML ?? '';
+          label.querySelector('b').innerHTML = `<span aria-hidden="true">${flag}</span> ${pl.dataset.name}`;
+          label.querySelector('small').textContent = pl.dataset.recipes;
           label.classList.remove('pop'); void label.offsetWidth; label.classList.add('pop');
         }
       }
     }
 
+    // Plynulé dojetí na nejbližší talíř (nebo na zvolený), jako ruleta.
+    const snapTo = (target, ms = 900) => { snap = { from: rot, to: target, t0: performance.now(), ms: reduce ? 1 : ms }; };
+    const nearestStop = () => {
+      const i = frontIndex();
+      return rot - wrap(i * STEP + rot - 180);
+    };
+
     function frame(t) {
       const dt = Math.min(0.05, prev ? (t - prev) / 1000 : 0);
       prev = t;
-      if (tween) {
-        const p = Math.min(1, (t - tween.t0) / tween.ms);
-        const ease = 1 - Math.pow(1 - p, 3);
-        rot = tween.from + (tween.to - tween.from) * ease;
-        if (p >= 1) { tween = null; vel = 0; }
+      if (snap) {
+        const p = Math.min(1, (t - snap.t0) / snap.ms);
+        const ease = 1 - Math.pow(1 - p, 4);
+        rot = snap.from + (snap.to - snap.from) * ease;
+        if (p >= 1) { snap = null; vel = 0; holdUntil = t + 2600; }
       } else if (!dragging) {
-        const auto = t < holdUntil ? 0 : AUTO;
-        vel += (auto - vel) * (1 - Math.exp(-dt * 1.4));
+        if (t < holdUntil) vel = 0;
+        else if (Math.abs(vel) > IDLE + 0.5) {
+          vel *= Math.exp(-dt * 1.1);              // tření po roztočení
+          if (Math.abs(vel) < 38) snapTo(nearestStop() + Math.sign(vel) * 0, 1100);
+        } else vel += (IDLE - vel) * (1 - Math.exp(-dt * 0.8));
         rot += vel * dt;
       }
       draw();
-      running = visible && (AUTO > 0 || dragging || tween || Math.abs(vel) > 0.001);
+      running = visible && (IDLE > 0 || dragging || snap || Math.abs(vel) > 0.01);
       if (running) requestAnimationFrame(frame); else prev = 0;
     }
     const kick = () => { if (!running) { running = true; prev = 0; requestAnimationFrame(frame); } };
 
-    // Natočí talíř i dopředu (nejkratší cestou) a chvíli počká, než se prstenec zase rozjede.
-    const bringToFront = (i) => {
-      const th = norm(rot + (i / N) * TAU);
-      tween = { from: rot, to: rot - th, t0: performance.now(), ms: reduce ? 1 : 700 };
-      holdUntil = performance.now() + 3500;
-      kick();
-    };
-
-    ring.addEventListener('pointerdown', (e) => {
-      dragging = true; moved = 0; lastX = e.clientX; lastT = performance.now(); tween = null;
-      ring.setPointerCapture(e.pointerId);
-      ring.classList.add('grabbing');
+    susan.addEventListener('pointerdown', (e) => {
+      dragging = true; moved = 0; snap = null; lastA = angleAt(e); lastT = performance.now(); vel = 0;
+      susan.setPointerCapture(e.pointerId);
+      susan.classList.add('grabbing');
       kick();
     });
-    ring.addEventListener('pointermove', (e) => {
+    susan.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const now = performance.now();
-      const dx = e.clientX - lastX;
-      moved += Math.abs(dx);
-      const k = 1.15 / RX;
-      rot += dx * k;
+      const a = angleAt(e);
+      const d = wrap(a - lastA);
+      moved += Math.abs(d);
+      rot += d;
       const dts = Math.max(0.008, (now - lastT) / 1000);
-      vel = vel * 0.55 + ((dx * k) / dts) * 0.45;
-      lastX = e.clientX; lastT = now;
+      vel = vel * 0.5 + (d / dts) * 0.5;
+      lastA = a; lastT = now;
     });
-    const stop = () => {
+    const release = () => {
       if (!dragging) return;
       dragging = false;
-      ring.classList.remove('grabbing');
-      vel = Math.max(-5, Math.min(5, vel));
-      holdUntil = performance.now() + 1200;
+      susan.classList.remove('grabbing');
+      vel = Math.max(-900, Math.min(900, vel));
+      // Pomalé puštění rovnou dojede na nejbližší talíř, rychlé se nejdřív vytočí.
+      if (Math.abs(vel) < 60) snapTo(nearestStop(), 600);
     };
-    ring.addEventListener('pointerup', stop);
-    ring.addEventListener('pointercancel', stop);
+    susan.addEventListener('pointerup', release);
+    susan.addEventListener('pointercancel', release);
     plates.forEach((el, i) =>
       el.addEventListener('click', (e) => {
-        if (moved > 6) { e.preventDefault(); return; }
-        bringToFront(i);
+        if (moved > 4) { e.preventDefault(); return; }
+        snapTo(rot - wrap(i * STEP + rot - 180), 1000);
+        kick();
       }),
     );
 
-    new ResizeObserver(resize).observe(stageEl);
-    resize();
+    new ResizeObserver(() => { layout(); draw(); }).observe(stageEl);
+    layout();
+    rot = 180 - 0 * STEP;                            // na začátku je vpředu první kuchyně
+    draw();
     stageEl.classList.add('ready');
-    new IntersectionObserver((en) => {
-      visible = en[0].isIntersecting;
-      if (visible) kick();
-    }).observe(stageEl);
+    new IntersectionObserver((en) => { visible = en[0].isIntersecting; if (visible) kick(); }).observe(stageEl);
     kick();
   }
 })();
