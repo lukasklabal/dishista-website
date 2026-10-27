@@ -199,14 +199,47 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .hero .status { display: inline-flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 0.93rem; font-weight: 500; }
 
 .stage { position: relative; height: min(80vh, 740px); min-height: 540px; }
-.stage .hero-phone { position: absolute; right: -4%; bottom: 0; z-index: 88; width: clamp(180px, 15.5vw, 236px); }
-.hero-phone, .stage .hero-phone { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + var(--sy, 0px)), 0) rotate(calc(5deg - var(--sr, 0deg))); }
+.globe { position: absolute; inset: -60px; width: calc(100% + 120px); height: calc(100% + 120px); cursor: grab; touch-action: pan-y; opacity: 0; transition: opacity 0.8s ease; }
+.globe.ready { opacity: 1; }
+.globe-pins { position: absolute; inset: -60px; pointer-events: none; z-index: 1; }
+.gpin {
+  position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: #fff; box-shadow: 0 10px 18px -8px rgba(92, 48, 18, 0.55), 0 0 0 1px rgba(92, 48, 18, 0.06), inset 0 1px 0 rgba(255,255,255,.9);
+  will-change: transform, opacity;
+}
+.gpin img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+/* Špička špendlíku a pulzující tečka na povrchu koule. */
+.gpin::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 2px; background: #fff; transform: rotate(45deg); z-index: -1; }
+.gpin::before {
+  content: ''; position: absolute; left: 50%; bottom: -12px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; z-index: -2;
+  background: var(--accent, #e4572e); box-shadow: 0 0 0 0 rgba(228, 87, 46, 0.5); animation: pinPulse 2.4s ease-out infinite;
+}
+@keyframes pinPulse { 0% { box-shadow: 0 0 0 0 rgba(228, 87, 46, 0.45); } 80%, 100% { box-shadow: 0 0 0 12px rgba(228, 87, 46, 0); } }
+@media (prefers-reduced-motion: reduce) { .gpin::before { animation: none; } }
+.globe:active { cursor: grabbing; }
+.globe-hint { position: absolute; left: 30%; bottom: 0; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--muted); pointer-events: none; }
+.globe-hint svg { width: 16px; height: 16px; }
+.stage .hero-phone { position: absolute; right: 0; bottom: 4%; z-index: 3; width: clamp(210px, 19.5vw, 282px); }
+.hero-phone, .float-chip, .stage .float { will-change: transform; }
+.stage .hero-phone { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + var(--sy, 0px)), 0) rotate(calc(5deg - var(--sr, 0deg))); }
+.float-chip {
+  position: absolute; z-index: 4; display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 7px 7px; border-radius: 999px;
+  background: var(--glass); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  color: var(--text); font-weight: 700; font-size: 0.92rem; box-shadow: var(--sh-2), var(--hl); white-space: nowrap;
+  transform: translate3d(var(--px, 0), var(--py, 0), 0);
+}
+.float-chip > span { display: grid; line-height: 1.15; }
+.float-chip small { font-size: 0.7rem; font-weight: 600; color: var(--text-2); }
+.float-chip img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #fff; }
+.float-chip.c1 { left: -4%; top: 20%; } .float-chip.c2 { left: 4%; bottom: 10%; } .float-chip.c3 { right: 2%; top: 0; }
 .stage .float { position: absolute; z-index: 2; transform: translate3d(var(--px, 0), var(--py, 0), 0); }
 .stage .f1 { --s: 86px; left: 46%; top: 2%; }
 .stage .f2 { --s: 72px; left: 0; top: 52%; z-index: 4; }
 .stage .f3 { --s: 54px; left: 50%; bottom: 2%; z-index: 4; }
-.stage .float, .stage .f2, @keyframes bob { 50% { translate: 0 -12px; } }
-/* Tablets (portrait) and phones: one centred column, the plates + phone scene below the copy. */
+.stage .float, .float-chip { animation: bob 7s ease-in-out infinite; }
+.stage .f2, .float-chip.c2 { animation-delay: -2.5s; } .stage .f3, .float-chip.c3 { animation-delay: -4.5s; }
+@keyframes bob { 50% { translate: 0 -12px; } }
+/* Tablets (portrait) and phones: one centred column, the globe + phone scene below the copy. */
 @media (max-width: 1100px) {
   .hero { min-height: 0; }
   .hero .wrap { grid-template-columns: 1fr; min-height: 0; padding-top: 124px; padding-bottom: 64px; gap: 8px; text-align: center; }
@@ -217,8 +250,10 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .perks, .stores { justify-content: center; }
   .stage { width: min(760px, 100%); margin: 0 auto; height: clamp(440px, 72vw, 660px); min-height: 0; }
   .stage .hero-phone { width: clamp(180px, 30vw, 270px); right: 4%; bottom: 2%; }
-    .stage .f1 { left: 44%; top: -2%; } .stage .f3 { left: 50%; bottom: 0; }
-  }
+  .float-chip.c1 { left: 0; top: 10%; } .float-chip.c2 { left: 4%; bottom: 6%; } .float-chip.c3 { right: 0; top: -2%; }
+  .stage .f1 { left: 44%; top: -2%; } .stage .f3 { left: 50%; bottom: 0; }
+  .globe-hint { left: 36%; bottom: -6px; }
+}
 @media (max-width: 600px) {
   :root { --gutter: 16px; }
   .hero .wrap { padding-top: 104px; padding-bottom: 48px; }
@@ -230,9 +265,15 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .store { height: 54px; padding: 0 15px 0 12px; gap: 9px; border-radius: 16px; }
   .store .txt b { font-size: 1.12rem; } .store .txt small { font-size: 0.64rem; } .store .logo { width: 23px; height: 23px; }
   .stage { height: 118vw; max-height: 500px; margin: 0 calc(var(--gutter) * -1); width: auto; }
-  .stage .hero-phone { width: 38vw; max-width: 180px; right: 2%; bottom: 0; }
-            .stage .f1 { --s: 58px; left: 50%; top: 0; }
-    h2 { font-size: clamp(2rem, 9vw, 2.6rem); }
+  .stage .hero-phone { width: 44vw; max-width: 200px; right: 5%; bottom: 3%; }
+  .float-chip { font-size: 0.78rem; padding: 5px 12px 5px 5px; gap: 8px; }
+  .float-chip img { width: 34px; height: 34px; }
+  .float-chip small { font-size: 0.64rem; }
+  .float-chip.c1 { left: 4%; top: 6%; } .float-chip.c2 { left: 4%; bottom: 8%; }
+  .float-chip.c3, .stage .f3 { display: none; }
+  .stage .f1 { --s: 58px; left: 50%; top: 0; }
+  .globe-hint { left: 30%; bottom: 0; }
+  h2 { font-size: clamp(2rem, 9vw, 2.6rem); }
   .section-head { margin-bottom: 36px; }
   .tile { padding: 22px; } .clay { width: 70px; height: 70px; border-radius: 22px; } .clay .i3d { --s: 50px; }
   .tile.big h3 { font-size: 1.7rem; }
@@ -242,82 +283,6 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .cta .panel { border-radius: 32px; padding: 36px 22px 0; }
   .receipt .paper { padding: 24px 22px 40px; }
 }
-
-
-/* ── Otočný stůl (lazy Susan) s talíři kuchyní. Disk je skutečně ve 3D (perspektiva + rotateX),
-   talíře na něm leží; rotaci, setrvačnost a „ruletu“ řídí site.js (proměnná --rot). ── */
-.susan {
-  --tilt: 60deg; --d: 520px; --r: calc(var(--d) * 0.37); --ps: calc(var(--d) * 0.215);
-  position: absolute; left: var(--x, 40%); top: var(--y, 56%); width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
-  perspective: calc(var(--d) * 2.6); perspective-origin: 50% 20%; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none;
-}
-.susan.grabbing { cursor: grabbing; }
-.stage:not(.ready) .susan { opacity: 0; }
-.stage .susan { transition: opacity 0.8s ease; }
-.susan-shadow {
-  position: absolute; left: 6%; right: 6%; top: 50%; height: 48%; border-radius: 50%; transform: translateY(-12%);
-  background: radial-gradient(closest-side, rgba(70, 30, 8, 0.36), rgba(70, 30, 8, 0.12) 60%, transparent); filter: blur(14px);
-}
-.susan-disk { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(var(--tilt)); }
-/* Bok disku (tloušťka) a samotná deska. */
-.susan-disk::before, .susan-disk::after { content: ''; position: absolute; inset: 0; border-radius: 50%; }
-.susan-disk::before { transform: translateZ(calc(var(--d) * -0.035)); background: linear-gradient(90deg, #c9a27e, #e6cdb2 30%, #f2e2cf 50%, #e1c4a6 72%, #b98e68); box-shadow: 0 0 0 1px rgba(120, 70, 30, 0.25); }
-.susan-disk::after {
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0 17%, rgba(150, 100, 60, 0.12) 17.4%, transparent 18.2%),
-    repeating-radial-gradient(circle at 50% 50%, rgba(160, 110, 70, 0.045) 0 2px, transparent 2px 9px),
-    radial-gradient(circle at 38% 30%, #fffdf9 0%, #fbf3e9 38%, #f1e1cd 78%, #e6cfb4 100%);
-  box-shadow: inset 0 0 0 calc(var(--d) * 0.012) rgba(255, 255, 255, 0.85), inset 0 calc(var(--d) * -0.03) calc(var(--d) * 0.06) rgba(150, 95, 50, 0.22);
-}
-.susan-spin { position: absolute; inset: 0; z-index: 1; transform-style: preserve-3d; transform: translateZ(1px) rotateZ(var(--rot, 0deg)); }
-.susan-hub {
-  position: absolute; left: 50%; top: 50%; width: 22%; height: 22%; margin: -11% 0 0 -11%; border-radius: 50%; display: grid; place-items: center;
-  background: radial-gradient(circle at 40% 35%, #fff, #f6ece0); box-shadow: inset 0 -3px 8px rgba(150, 95, 50, 0.25), 0 6px 14px -6px rgba(90, 45, 15, 0.45);
-  transform: rotateZ(calc(var(--rot, 0deg) * -1));
-}
-.susan-hub img { width: 70%; height: 70%; border-radius: 22%; }
-.susan .plate {
-  position: absolute; left: 50%; top: 50%; width: var(--ps); height: var(--ps); margin: calc(var(--ps) / -2) 0 0 calc(var(--ps) / -2);
-  padding: 0; border: 0; border-radius: 50%; cursor: inherit; font-size: calc(var(--ps) / 10);
-  transform: rotateZ(var(--a)) translateY(calc(var(--r) * -1)) rotateZ(calc(var(--a) * -1 - var(--rot, 0deg))) translateZ(var(--lift, 2px));
-  transition: --lift 0.4s ease, box-shadow 0.4s ease;
-  background: radial-gradient(circle, #fff 0 64%, #f1e8dd 66.5%, #fff 72%, #f4ece2 100%);
-  box-shadow: inset 0 -0.1em 0.25em rgba(120, 80, 50, 0.2), 0 0.25em 0.4em rgba(80, 40, 12, 0.28), 0 0.6em 1.1em -0.2em rgba(80, 40, 12, 0.22);
-}
-@property --lift { syntax: '<length>'; inherits: false; initial-value: 2px; }
-.susan .plate img { position: absolute; inset: 13%; width: 74%; height: 74%; border-radius: 50%; object-fit: cover; pointer-events: none; }
-.susan .plate::after { content: ''; position: absolute; inset: 13%; border-radius: 50%; pointer-events: none; box-shadow: inset 0 0.18em 0.35em rgba(0, 0, 0, 0.28); }
-.susan .plate .badge {
-  position: absolute; right: -4%; top: -2%; z-index: 1; width: 2.9em; height: 2.9em; display: grid; place-items: center; border-radius: 50%;
-  font-size: calc(var(--ps) / 7.5); line-height: 1; background: #fff; box-shadow: 0 0.12em 0.35em rgba(60, 30, 10, 0.3);
-}
-.susan .plate .badge img.mark { width: 74%; height: 74%; border-radius: 50%; }
-.susan .plate.front { --lift: calc(var(--d) * 0.06); box-shadow:
-    0 0 0 0.3em color-mix(in srgb, var(--accent) 88%, #fff), inset 0 -0.1em 0.25em rgba(120, 80, 50, 0.2),
-    0 1.6em 1.6em -0.6em rgba(70, 30, 8, 0.35), 0 0 2.4em color-mix(in srgb, var(--accent) 45%, transparent); }
-.susan .plate:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
-:root[data-theme='dark'] .susan-disk::after { background: radial-gradient(circle at 38% 30%, #3a322c, #2a2420 70%, #201b18); }
-:root[data-theme='dark'] .susan-disk::before { background: linear-gradient(90deg, #120f0d, #2b2420 50%, #120f0d); }
-:root[data-theme='dark'] .susan .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .susan-disk::after { background: radial-gradient(circle at 38% 30%, #3a322c, #2a2420 70%, #201b18); }
-  :root:not([data-theme='light']) .susan-disk::before { background: linear-gradient(90deg, #120f0d, #2b2420 50%, #120f0d); }
-  :root:not([data-theme='light']) .susan .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); }
-}
-.plate-label {
-  position: absolute; z-index: 120; transform: translate(-50%, 0); display: grid; justify-items: center; gap: 1px; pointer-events: none;
-  padding: 9px 20px 10px; border-radius: 22px; white-space: nowrap; text-align: center;
-  background: color-mix(in srgb, var(--surface, #fff) 84%, transparent); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: 0 12px 32px -12px rgba(60, 30, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-.plate-label .today { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.plate-label b { font-size: 1.05rem; display: inline-flex; align-items: center; gap: 6px; } .plate-label small { font-size: 0.78rem; color: var(--text-2); font-weight: 600; }
-.plate-label b:empty { display: none; }
-.plate-label.pop { animation: labelPop 0.5s cubic-bezier(.3, 1.5, .5, 1); }
-@keyframes labelPop { from { transform: translate(-50%, 8px) scale(0.9); opacity: 0.3; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
-.plate-hint { position: absolute; left: 6%; bottom: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--muted); pointer-events: none; }
-.plate-hint svg { width: 16px; height: 16px; }
-@media (max-width: 600px) { .plate-hint { left: 50%; transform: translateX(-50%); bottom: -4px; white-space: nowrap; } .plate-label { padding: 7px 14px; } .plate-label b { font-size: 0.95rem; } }
 
 /* ── iPhone 16 Pro (Black Titanium). Real proportions: 402×874 pt screen, ~3.35 % border per side
    (0.8 % titanium band + 2.55 % black bezel), screen corner radius 13.7 % of its width.
@@ -725,12 +690,3 @@ details.faq p { margin-top: 10px; }
 
 /* Znak arabského světa (ع) místo vlajky — vlastní obrázek ve velikosti emoji. */
 img.mark { display: inline-block; width: 1.1em; height: 1.1em; border-radius: 24%; vertical-align: -0.15em; object-fit: cover; }
-.plate .badge img.mark { width: 70%; height: 70%; border-radius: 50%; vertical-align: middle; }
-
-/* 3D stůl (WebGL, turntable.js): plátno přes celou scénu; CSS verze zůstane jen pro čtečky a klávesnici. */
-.susan3d { position: absolute; top: 0; bottom: 0; left: -10%; width: 110%; height: 100%; z-index: 1; pointer-events: none; }
-.stage.has-3d { touch-action: pan-y; }
-.stage.grabbing { cursor: grabbing !important; }
-@media (max-width: 960px) { .susan3d { left: -4%; width: 108%; } }
-.stage.has-3d .susan { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); opacity: 1; }
-.stage.has-3d .susan .plate:focus-visible { outline: none; }
