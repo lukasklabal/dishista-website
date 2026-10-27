@@ -4,6 +4,14 @@
    Bez WebGL 2 zůstává CSS verze stolu (řídí ji site.js). */
 import * as THREE from './vendor/three.module.min.js';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+
+/* 3D jídla (Kenney Food Kit, CC0 — assets/models) a vlajky (flag-icons 4:3, MIT — assets/flags-4x3). */
+const DISH = {
+  cz: ['whole-ham'], it: ['pizza'], fr: ['croissant'], cn: ['steamer'], jp: ['sushi-salmon'], kr: ['meat-ribs'],
+  th: ['bowl-soup'], vn: ['bowl-broth'], in: ['pot-stew'], arab: ['skewer-vegetables'], ma: ['tajine', 'tajine-lid'],
+  ng: ['pan-stew'], za: ['meat-sausage'], us: ['burger-cheese'], mx: ['taco'], pe: ['fish'], au: ['pie'],
+};
 
 const stage = document.querySelector('.stage');
 const dom = stage?.querySelector('.susan');
@@ -114,17 +122,27 @@ function init() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  /* ── Talíře ── */
+  /* ── Talíře: porcelán se zlatým okrajem, na něm 3D jídlo a vedle mosazná tyčka s vlající vlajkou ── */
   const R = 0.122, RING = 0.735;
   const plateGeo = new THREE.CylinderGeometry(R, R * 0.8, 0.02, 72);
-  const wellGeo = new THREE.CircleGeometry(R * 0.74, 72);
+  const wellGeo = new THREE.CircleGeometry(R * 0.76, 72);
   const rimGeo = new THREE.TorusGeometry(R * 0.985, 0.0042, 10, 96);
+  const poleGeo = new THREE.CylinderGeometry(0.0035, 0.0045, 0.2, 12);
+  const knobGeo = new THREE.SphereGeometry(0.009, 16, 12);
+  const FW = 0.11, FH = 0.0825;                    // vlajka 4 : 3
+  const matWell = new THREE.MeshPhysicalMaterial({ color: 0xf6efe6, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.1 });
+  const gltf = new GLTFLoader();
+  const models = {};
+  const loadModel = (name) => (models[name] ??= gltf.loadAsync(`/assets/models/${name}.glb`));
+  const flags = [];
+
   const plates = buttons.map((btn, i) => {
+    const id = btn.dataset.id;
     const holder = new THREE.Group();              // poloha na desce
     const phi = (i / N) * TAU;
     holder.position.set(Math.sin(phi) * RING, TOP_Y, Math.cos(phi) * RING);
     spin.add(holder);
-    const plate = new THREE.Group();               // natáčí se k divákovi, zvedá se
+    const plate = new THREE.Group();               // drží se čelem k divákovi, přední se zvedne
     plate.rotation.order = 'YXZ';
     holder.add(plate);
     const body = new THREE.Mesh(plateGeo, matPorcelain);
@@ -132,25 +150,83 @@ function init() {
     body.castShadow = true;
     body.receiveShadow = true;
     plate.add(body);
+    const well = new THREE.Mesh(wellGeo, matWell);
+    well.rotation.x = -Math.PI / 2;
+    well.position.y = 0.0222;
+    well.receiveShadow = true;
+    plate.add(well);
     const goldRim = new THREE.Mesh(rimGeo, matGold.clone());
     goldRim.rotation.x = Math.PI / 2;
     goldRim.position.y = 0.022;
     plate.add(goldRim);
-    const food = new THREE.Mesh(wellGeo, new THREE.MeshPhysicalMaterial({ map: tex(btn.querySelector('img').src), roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.3 }));
-    food.rotation.x = -Math.PI / 2;
-    food.position.y = 0.0225;
-    food.receiveShadow = true;
+
+    // 3D jídlo: model se zmenší na velikost talíře a postaví na jeho dno.
+    const food = new THREE.Group();
+    food.position.y = 0.023;
     plate.add(food);
-    // Vlaječka jako odznak (vždy čelem ke kameře).
-    const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: badgeTexture(btn), depthWrite: false }));
-    badge.scale.setScalar(0.085);
-    badge.position.set(R * 0.78, 0.07, -R * 0.62);
-    plate.add(badge);
+    Promise.all((DISH[id] ?? ['pie']).map(loadModel)).then((parts) => {
+      // Rozměry počítáme na samostatné skupině (bez rodičů), pak ji vycentrujeme na talíř.
+      const inner = new THREE.Group();
+      parts.forEach((g) => inner.add(g.scene.clone(true)));
+      const box = new THREE.Box3().setFromObject(inner);
+      const size = box.getSize(new THREE.Vector3());
+      const k = (R * 1.45) / Math.max(size.x, size.z, size.y * 0.9);
+      const c = box.getCenter(new THREE.Vector3());
+      inner.position.set(-c.x, -box.min.y, -c.z);
+      food.add(inner);
+      food.scale.setScalar(k);
+      food.rotation.y = -0.5;
+      inner.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = true;
+        o.receiveShadow = true;
+        o.material = o.material.clone();
+        o.material.roughness = Math.min(o.material.roughness ?? 1, 0.55);
+      });
+      wake();
+    });
+
+    // Mosazná tyčka se zlatou kuličkou a látkovou vlajkou.
+    const pole = new THREE.Group();
+    pole.position.set(R * 0.9, 0, -R * 0.55);
+    plate.add(pole);
+    const stick = new THREE.Mesh(poleGeo, matBrass);
+    stick.position.y = 0.1;
+    stick.castShadow = true;
+    pole.add(stick);
+    const knob = new THREE.Mesh(knobGeo, matGold);
+    knob.position.y = 0.2;
+    pole.add(knob);
+    const flagGeo = new THREE.PlaneGeometry(FW, FH, 18, 8);
+    flagGeo.translate(FW / 2, 0, 0);               // upevněná u tyčky
+    const flagMat = new THREE.MeshStandardMaterial({ map: flagTexture(id), roughness: 0.85, side: THREE.DoubleSide });
+    const flag = new THREE.Mesh(flagGeo, flagMat);
+    flag.position.set(0.004, 0.2 - FH / 2 - 0.006, 0);
+    flag.castShadow = true;
+    pole.add(flag);
+    flags.push({ geo: flagGeo, base: flagGeo.attributes.position.array.slice(), seed: i * 1.7 });
+
     body.userData.index = i;
-    food.userData.index = i;
-    return { holder, plate, rim: goldRim, lift: 0, accent: new THREE.Color(btn.style.getPropertyValue('--accent').trim() || '#d8b26a') };
+    well.userData.index = i;
+    return { holder, plate, food, rim: goldRim, lift: 0, accent: new THREE.Color(btn.style.getPropertyValue('--accent').trim() || '#d8b26a') };
   });
   const pickables = plates.flatMap((p) => p.plate.children.filter((c) => c.userData.index !== undefined));
+
+  // Vlnění vlajek: vlna běží od tyčky ke kraji, u tyčky je látka pevná.
+  const waveFlags = (time) => {
+    for (const f of flags) {
+      const pos = f.geo.attributes.position;
+      const a = pos.array;
+      for (let v = 0; v < pos.count; v++) {
+        const x = f.base[v * 3], y = f.base[v * 3 + 1];
+        const u = x / FW;
+        a[v * 3 + 2] = Math.sin(u * 7 - time * 4.2 + f.seed + y * 18) * 0.012 * u + Math.sin(u * 3 - time * 2.1 + f.seed) * 0.006 * u;
+        a[v * 3 + 1] = y - u * u * 0.006;
+      }
+      pos.needsUpdate = true;
+      f.geo.computeVertexNormals();
+    }
+  };
 
   /* ── Rozložení ── */
   let W = 0, H = 0, frontScreen = new THREE.Vector3();
@@ -242,6 +318,7 @@ function init() {
       p.rim.material.color.copy(matGold.color).lerp(p.accent, p.lift);
       p.rim.material.emissive.copy(p.accent).multiplyScalar(p.lift * 0.35);
     });
+    if (!reduce) waveFlags(t / 1000);
     renderer.render(scene, camera);
     settle = animating ? 30 : Math.max(0, settle - 1);
     running = visible && (IDLE > 0 || dragging || !!snap || Math.abs(vel) > 0.01 || settle > 0);
@@ -347,35 +424,24 @@ function marbleCanvas() {
   return c;
 }
 
-/* Odznak s vlajkou: bílé kolečko s emoji (nebo obrázkem znaku arabského světa). */
-function badgeTexture(btn) {
+/* Textura vlajky 4 : 3 ze SVG (arabský svět má vlastní znak ع). */
+function flagTexture(id) {
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = 256; c.height = 192;
   const g = c.getContext('2d');
+  g.fillStyle = '#eee'; g.fillRect(0, 0, 256, 192);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  const paint = (img) => {
-    g.clearRect(0, 0, 128, 128);
-    g.shadowColor = 'rgba(60, 30, 10, 0.35)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
-    g.fillStyle = '#fff';
-    g.beginPath(); g.arc(64, 62, 52, 0, Math.PI * 2); g.fill();
-    g.shadowColor = 'transparent';
-    if (img) {
-      g.save(); g.beginPath(); g.arc(64, 62, 40, 0, Math.PI * 2); g.clip();
-      g.drawImage(img, 24, 22, 80, 80); g.restore();
-    } else {
-      g.font = '60px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(btn.dataset.flag, 64, 66);
-    }
+  t.anisotropy = 4;
+  const img = new Image();
+  img.onload = () => {
+    g.drawImage(img, 0, 0, 256, 192);
+    // jemný lesk látky
+    const sh = g.createLinearGradient(0, 0, 256, 0);
+    sh.addColorStop(0, 'rgba(0,0,0,0.12)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.06)'); sh.addColorStop(1, 'rgba(0,0,0,0.08)');
+    g.fillStyle = sh; g.fillRect(0, 0, 256, 192);
     t.needsUpdate = true;
   };
-  const mark = btn.querySelector('.badge img');
-  if (mark) {
-    const img = new Image();
-    img.onload = () => paint(img);
-    img.src = mark.src;
-    paint(null);
-  } else paint(null);
+  img.src = id === 'arab' ? '/assets/flags-4x3/arab.png' : `/assets/flags-4x3/${id}.svg`;
   return t;
 }
