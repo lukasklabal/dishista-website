@@ -176,8 +176,10 @@
   /* ── Otočný stůl s talíři kuchyní: tažením kolem středu se roztočí, se setrvačností dojede
      a zastaví se vždy přesně na jedné kuchyni (talíř vpředu se zvedne a ukáže, co dnes vaříš).
      V klidu se stůl pomalu otáčí sám. ── */
+  // S WebGL 2 stůl vykreslí ve 3D turntable.js; tahle CSS verze je záloha pro starší prohlížeče.
   const susanEl = document.querySelector('.susan');
-  if (susanEl) initSusan(susanEl);
+  const webgl2 = !!document.createElement('canvas').getContext('webgl2');
+  if (susanEl && !webgl2) initSusan(susanEl);
 
   function initSusan(susan) {
     const stageEl = susan.closest('.stage');
