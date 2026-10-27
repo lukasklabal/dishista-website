@@ -1,4 +1,4 @@
-/* Dishista — interactions: globe, parallax, rotating headline, reveals, counters, story, chat, store dialog. */
+/* Dishista — interactions: plate ring, parallax, rotating headline, reveals, counters, story, chat, store dialog. */
 (() => {
   const cfg = window.DISHISTA || {};
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -152,7 +152,7 @@
 
   /* Hero parallax: phone, dish chips and 3D icons drift with the pointer at different depths. */
   const hero = document.querySelector('.hero');
-  const layers = hero ? [...hero.querySelectorAll('.hero-phone, .float-chip, .stage .float')] : [];
+  const layers = hero ? [...hero.querySelectorAll('.hero-phone, .stage .float')] : [];
   if (hero && layers.length && !reduce && window.matchMedia('(pointer: fine)').matches) {
     const depth = (el) => Number(el.dataset.depth || (el.classList.contains('hero-phone') ? 0.5 : el.classList.contains('float') ? 1.4 : 0.9));
     let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
@@ -173,204 +173,127 @@
     hero.addEventListener('pointerleave', () => { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(step); });
   }
 
-  /* ── Globe (WebGL): a soft, glossy sphere with crisp land dots, same look as the app icon ── */
-  const canvas = document.querySelector('canvas.globe');
-  if (canvas) initGlobe(canvas, cfg.pins || []);
+  /* ── Talíře kuchyní: prstenec jídel kolem telefonu. Pomalu se točí, tažením se roztočí
+     (se setrvačností), klepnutím na talíř se natočí dopředu a ukáže, o jakou kuchyni jde. ── */
+  const ringEl = document.querySelector('.plates');
+  if (ringEl) initPlates(ringEl);
 
-  function initGlobe(canvas, pins) {
-    const gl = canvas.getContext('webgl', { antialias: false, premultipliedAlpha: true, alpha: true });
-    if (!gl) { canvas.remove(); return; }
-    const rad = Math.PI / 180;
-    const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
-    const fs = `precision highp float;
-uniform vec2 uC; uniform float uR, uRotX, uRotY, uDark, uDpr; uniform sampler2D uMask;
-const float D = 1.5;            // dot grid spacing in degrees
-const float PI = 3.14159265;
-vec3 srgb(vec3 c){ return c; }
-void main(){
-  vec2 q = (gl_FragCoord.xy - uC) / uR;
-  float r = length(q);
-  float px = 1.0 / uR;                                   // one pixel in sphere units
-  vec3 lit = mix(vec3(1.0,.973,.937), vec3(.27,.21,.17), uDark);
-  vec3 shade = mix(vec3(.93,.74,.58), vec3(.10,.075,.06), uDark);
-  vec3 dotLit = mix(vec3(.93,.27,.14), vec3(1.0,.42,.24), uDark);
-  vec3 dotShade = mix(vec3(.74,.17,.08), vec3(.62,.18,.08), uDark);
-  vec4 outc = vec4(0.);
-  // soft contact shadow + warm atmosphere outside the sphere
-  float sh = length(q - vec2(.10,-.16));
-  float shadow = (1. - smoothstep(.70, 1.18, sh)) * mix(.16, .45, uDark);
-  float halo = exp(-max(r - 1., 0.) * 11.) * mix(.38, .30, uDark) * step(1., r);
-  vec3 haloCol = mix(vec3(1.,.70,.40), vec3(.93,.27,.14), uDark);
-  outc = vec4(vec3(.36,.14,.04) * shadow, shadow);
-  outc = vec4(haloCol * halo, halo) + outc * (1. - halo);
-  if (r < 1. + px) {
-    float z = sqrt(max(0., 1. - r * r));
-    vec3 n = vec3(q, z);
-    // view -> world (undo tilt, then spin)
-    float cx = cos(uRotX), sx = sin(uRotX), cy = cos(uRotY), sy = sin(uRotY);
-    float y = n.y * cx + n.z * sx;
-    float z1 = -n.y * sx + n.z * cx;
-    float x = n.x * cy - z1 * sy;
-    float zw = n.x * sy + z1 * cy;
-    float lat = asin(clamp(y, -1., 1.)) / PI * 180.;
-    float lon = atan(x, zw) / PI * 180.;
-    float li = floor((lat + 90.) / D);
-    float latC = (li + .5) * D - 90.;
-    float cnt = max(1., floor(360. * cos(latC * PI / 180.) / D));
-    float lj = floor((lon + 180.) / 360. * cnt);
-    float lonC = (lj + .5) * 360. / cnt - 180.;
-    float dlon = lon - lonC;
-    vec2 dd = vec2(dlon * cos(lat * PI / 180.), lat - latC);
-    float dist = length(dd);
-    float land = step(.5, texture2D(uMask, vec2((lonC + 180.) / 360., (90. - latC) / 180.)).r);
-    float degPx = (180. / PI) * px / max(z, .12);          // pixel footprint in degrees (foreshortened)
-    float dotR = D * .34;
-    float dotA = land * (1. - smoothstep(dotR - degPx * .9, dotR + degPx * .9, dist));
-    dotA *= smoothstep(.0, .18, z);                          // fade towards the limb
-    vec3 L = normalize(vec3(-.62, .7, .5));
-    float dif = clamp(dot(n, L), 0., 1.);
-    float lightT = smoothstep(-.25, .95, dif);
-    vec3 col = mix(shade, lit, lightT);
-    col = mix(col, mix(dotShade, dotLit, lightT), dotA);
-    float fres = pow(1. - z, 2.6);
-    col += mix(vec3(1.,.82,.62), vec3(1.,.45,.25), uDark) * fres * .35;
-    float spec = pow(max(dot(reflect(-L, n), vec3(0., 0., 1.)), 0.), 60.);
-    col += vec3(1.) * spec * mix(.32, .12, uDark);
-    float a = clamp((1. - r) / px + .5, 0., 1.);             // 1px anti-aliased edge
-    outc = vec4(col * a, a) + outc * (1. - a);
-  }
-  gl_FragColor = outc;
-}`;
-    const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
-    const prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs));
-    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { canvas.remove(); return; }
-    gl.useProgram(prog);
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, 'p');
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const U = (n) => gl.getUniformLocation(prog, n);
-    const uC = U('uC'), uR = U('uR'), uRotX = U('uRotX'), uRotY = U('uRotY'), uDark = U('uDark'), uDpr = U('uDpr');
+  function initPlates(ring) {
+    const stageEl = ring.closest('.stage');
+    const plates = [...ring.querySelectorAll('.plate')];
+    const label = stageEl.querySelector('.plate-label');
+    const N = plates.length;
+    const TAU = Math.PI * 2;
+    const AUTO = reduce ? 0 : 0.11;              // rad / s
+    let rot = 0, vel = AUTO, dragging = false, moved = 0, lastX = 0, lastT = 0, tween = null, holdUntil = 0;
+    let W = 0, H = 0, S = 0, CX = 0, CY = 0, RX = 0, RY = 0, front = -1, running = false, visible = true, prev = 0;
 
-    // Land mask texture (Natural Earth 1:50m)
-    const tex = gl.createTexture();
-    let ready = false;
-    const img = new Image();
-    img.onload = () => {
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, gl.LUMINANCE, gl.UNSIGNED_BYTE, img);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      ready = true;
-      canvas.classList.add('ready');
-      frame(performance.now());
-    };
-    img.src = '/assets/land-mask.png';
-
-    // Flag pins are real DOM elements: crisp emoji, soft shadows, no canvas text.
-    const layer = document.createElement('div');
-    layer.className = 'globe-pins';
-    layer.setAttribute('aria-hidden', 'true');
-    canvas.after(layer);
-    const pinEls = pins.map((p) => {
-      const el = document.createElement('span');
-      el.className = 'gpin';
-      el.textContent = p.flag;
-      layer.appendChild(el);
-      const la = p.lat * rad, lo = p.lng * rad;
-      return { el, v: [Math.cos(la) * Math.sin(lo), Math.sin(la), Math.cos(la) * Math.cos(lo)] };
-    });
-
-    const PAD = 60;
-    let w = 0, h = 0, dpr = 1, R = 0, X = 0, Y = 0;
     const resize = () => {
-      const r = canvas.getBoundingClientRect();
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      w = r.width; h = r.height;
-      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
-      const small = w < 560;
-      // Canvas přesahuje scénu o PAD px, aby se měkká atmosféra kolem koule neořízla.
-      const sw = w - 2 * PAD, sh = h - 2 * PAD;
-      R = small ? Math.min(sw * 0.42, sh * 0.44) : Math.min(sw * 0.4, sh * 0.42);
-      X = PAD + sw * (small ? 0.4 : 0.37); Y = PAD + sh * 0.47;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      if (ready && !running) frame(performance.now());
+      const r = stageEl.getBoundingClientRect();
+      W = r.width; H = r.height;
+      const small = W < 560;
+      S = Math.max(80, Math.min(small ? W * 0.27 : W * 0.24, 172));
+      CX = W * (small ? 0.42 : 0.38); CY = H * (small ? 0.42 : 0.44);
+      RX = W * (small ? 0.36 : 0.34); RY = H * (small ? 0.15 : 0.17);
+      ring.style.setProperty('--s', `${S.toFixed(1)}px`);
+      if (label) { label.style.left = `${CX}px`; label.style.top = `${CY + RY + S * 0.56}px`; }
+      draw();
     };
-    new ResizeObserver(resize).observe(canvas);
-    resize();
 
-    const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
-    const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : darkMQ.matches; };
+    const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-    // Rotation state: smooth auto-spin, drag with inertia that eases back to the auto speed.
-    const AUTO = reduce ? 0 : 0.16;          // rad / s
-    let rotY = -15 * rad, rotX = 22 * rad, vel = AUTO, dragging = false, lastX = 0, lastY = 0, lastT = 0, visible = true, running = false, prev = 0;
-
-    function project(v) {
-      const cy = Math.cos(rotY), sy = Math.sin(rotY), cx = Math.cos(rotX), sx = Math.sin(rotX);
-      const x1 = v[0] * cy + v[2] * sy, z1 = -v[0] * sy + v[2] * cy;
-      const y2 = v[1] * cx - z1 * sx, z2 = v[1] * sx + z1 * cx;
-      return [X + x1 * R, Y - y2 * R, z2];
+    function draw() {
+      let best = 0, bestD = -2;
+      plates.forEach((el, i) => {
+        const th = rot + (i / N) * TAU;
+        const c = Math.cos(th);
+        const d = (c + 1) / 2;                       // 0 vzadu … 1 vpředu
+        const x = CX + RX * Math.sin(th), y = CY + RY * c;
+        const k = 0.42 + 0.58 * d;
+        el.style.transform = `translate3d(${(x - S / 2).toFixed(1)}px, ${(y - S / 2).toFixed(1)}px, 0) scale(${k.toFixed(3)})`;
+        el.style.zIndex = String(Math.round(d * 100));
+        el.style.setProperty('--shade', ((1 - d) * 0.42).toFixed(3));
+        if (c > bestD) { bestD = c; best = i; }
+      });
+      if (best !== front) {
+        if (front >= 0) plates[front].classList.remove('front');
+        front = best;
+        plates[front].classList.add('front');
+        if (label) {
+          label.querySelector('b').textContent = plates[front].dataset.label;
+          label.querySelector('small').textContent = plates[front].dataset.recipes;
+          label.classList.remove('pop'); void label.offsetWidth; label.classList.add('pop');
+        }
+      }
     }
 
     function frame(t) {
       const dt = Math.min(0.05, prev ? (t - prev) / 1000 : 0);
       prev = t;
-      if (!dragging) {
-        vel += (AUTO - vel) * (1 - Math.exp(-dt * 1.6));
-        rotY += vel * dt;
+      if (tween) {
+        const p = Math.min(1, (t - tween.t0) / tween.ms);
+        const ease = 1 - Math.pow(1 - p, 3);
+        rot = tween.from + (tween.to - tween.from) * ease;
+        if (p >= 1) { tween = null; vel = 0; }
+      } else if (!dragging) {
+        const auto = t < holdUntil ? 0 : AUTO;
+        vel += (auto - vel) * (1 - Math.exp(-dt * 1.4));
+        rot += vel * dt;
       }
-      gl.uniform2f(uC, X * dpr, (h - Y) * dpr);
-      gl.uniform1f(uR, R * dpr);
-      gl.uniform1f(uRotX, rotX);
-      gl.uniform1f(uRotY, rotY);
-      gl.uniform1f(uDark, isDark() ? 1 : 0);
-      gl.uniform1f(uDpr, dpr);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      for (const p of pinEls) {
-        const [x, y, z] = project(p.v);
-        const o = Math.max(0, Math.min(1, (z - 0.12) * 5));
-        p.el.style.opacity = o.toFixed(3);
-        p.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, calc(-100% - 6px)) scale(${(0.72 + 0.28 * z).toFixed(3)})`;
-        p.el.style.zIndex = String(Math.round(z * 100));
-      }
-      running = visible && (AUTO > 0 || dragging || Math.abs(vel) > 0.001);
+      draw();
+      running = visible && (AUTO > 0 || dragging || tween || Math.abs(vel) > 0.001);
       if (running) requestAnimationFrame(frame); else prev = 0;
     }
+    const kick = () => { if (!running) { running = true; prev = 0; requestAnimationFrame(frame); } };
 
-    new IntersectionObserver((e) => {
-      visible = e[0].isIntersecting;
-      if (visible && ready && !running) { prev = 0; requestAnimationFrame(frame); }
-    }).observe(canvas);
-    document.addEventListener('visibilitychange', () => { prev = 0; });
+    // Natočí talíř i dopředu (nejkratší cestou) a chvíli počká, než se prstenec zase rozjede.
+    const bringToFront = (i) => {
+      const th = norm(rot + (i / N) * TAU);
+      tween = { from: rot, to: rot - th, t0: performance.now(), ms: reduce ? 1 : 700 };
+      holdUntil = performance.now() + 3500;
+      kick();
+    };
 
-    canvas.addEventListener('pointerdown', (e) => {
-      dragging = true; lastX = e.clientX; lastY = e.clientY; lastT = performance.now();
-      canvas.setPointerCapture(e.pointerId);
-      if (!running) { prev = 0; requestAnimationFrame(frame); }
+    ring.addEventListener('pointerdown', (e) => {
+      dragging = true; moved = 0; lastX = e.clientX; lastT = performance.now(); tween = null;
+      ring.setPointerCapture(e.pointerId);
+      ring.classList.add('grabbing');
+      kick();
     });
-    canvas.addEventListener('pointermove', (e) => {
+    ring.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const now = performance.now();
-      const dx = e.clientX - lastX, dy = e.clientY - lastY;
-      const k = 1 / R;                       // drag follows the finger on the sphere surface
-      rotY += dx * k;
-      rotX = Math.max(-1.0, Math.min(1.0, rotX + dy * k));
+      const dx = e.clientX - lastX;
+      moved += Math.abs(dx);
+      const k = 1.15 / RX;
+      rot += dx * k;
       const dts = Math.max(0.008, (now - lastT) / 1000);
-      vel = vel * 0.6 + (dx * k / dts) * 0.4;
-      lastX = e.clientX; lastY = e.clientY; lastT = now;
+      vel = vel * 0.55 + ((dx * k) / dts) * 0.45;
+      lastX = e.clientX; lastT = now;
     });
-    const stop = () => { dragging = false; vel = Math.max(-6, Math.min(6, vel)); };
-    canvas.addEventListener('pointerup', stop);
-    canvas.addEventListener('pointercancel', stop);
+    const stop = () => {
+      if (!dragging) return;
+      dragging = false;
+      ring.classList.remove('grabbing');
+      vel = Math.max(-5, Math.min(5, vel));
+      holdUntil = performance.now() + 1200;
+    };
+    ring.addEventListener('pointerup', stop);
+    ring.addEventListener('pointercancel', stop);
+    plates.forEach((el, i) =>
+      el.addEventListener('click', (e) => {
+        if (moved > 6) { e.preventDefault(); return; }
+        bringToFront(i);
+      }),
+    );
+
+    new ResizeObserver(resize).observe(stageEl);
+    resize();
+    stageEl.classList.add('ready');
+    new IntersectionObserver((en) => {
+      visible = en[0].isIntersecting;
+      if (visible) kick();
+    }).observe(stageEl);
+    kick();
   }
 })();

@@ -199,39 +199,14 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .hero .status { display: inline-flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 0.93rem; font-weight: 500; }
 
 .stage { position: relative; height: min(80vh, 740px); min-height: 540px; }
-.globe { position: absolute; inset: -60px; width: calc(100% + 120px); height: calc(100% + 120px); cursor: grab; touch-action: pan-y; opacity: 0; transition: opacity 0.8s ease; }
-.globe.ready { opacity: 1; }
-.globe-pins { position: absolute; inset: -60px; pointer-events: none; z-index: 1; }
-.gpin {
-  position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
-  background: var(--surface); box-shadow: 0 8px 16px -6px rgba(92, 48, 18, 0.5), inset 0 1px 0 rgba(255,255,255,.9);
-  font: 19px/1 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; will-change: transform, opacity;
-}
-.gpin::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 2px; background: inherit; transform: rotate(45deg); z-index: -1; }
-.globe:active { cursor: grabbing; }
-.globe-hint { position: absolute; left: 30%; bottom: 0; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--muted); pointer-events: none; }
-.globe-hint svg { width: 16px; height: 16px; }
-.stage .hero-phone { position: absolute; right: 0; bottom: 4%; z-index: 3; width: clamp(210px, 19.5vw, 282px); }
-.hero-phone, .float-chip, .stage .float { will-change: transform; }
-.stage .hero-phone { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + var(--sy, 0px)), 0) rotate(calc(5deg - var(--sr, 0deg))); }
-.float-chip {
-  position: absolute; z-index: 4; display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 7px 7px; border-radius: 999px;
-  background: var(--glass); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  color: var(--text); font-weight: 700; font-size: 0.92rem; box-shadow: var(--sh-2), var(--hl); white-space: nowrap;
-  transform: translate3d(var(--px, 0), var(--py, 0), 0);
-}
-.float-chip > span { display: grid; line-height: 1.15; }
-.float-chip small { font-size: 0.7rem; font-weight: 600; color: var(--text-2); }
-.float-chip img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #fff; }
-.float-chip.c1 { left: -4%; top: 20%; } .float-chip.c2 { left: 4%; bottom: 10%; } .float-chip.c3 { right: 2%; top: 0; }
+.stage .hero-phone { position: absolute; right: 0; bottom: 4%; z-index: 88; width: clamp(210px, 19.5vw, 282px); }
+.hero-phone, .stage .hero-phone { transform: translate3d(var(--px, 0px), calc(var(--py, 0px) + var(--sy, 0px)), 0) rotate(calc(5deg - var(--sr, 0deg))); }
 .stage .float { position: absolute; z-index: 2; transform: translate3d(var(--px, 0), var(--py, 0), 0); }
 .stage .f1 { --s: 86px; left: 46%; top: 2%; }
 .stage .f2 { --s: 72px; left: 0; top: 52%; z-index: 4; }
 .stage .f3 { --s: 54px; left: 50%; bottom: 2%; z-index: 4; }
-.stage .float, .float-chip { animation: bob 7s ease-in-out infinite; }
-.stage .f2, .float-chip.c2 { animation-delay: -2.5s; } .stage .f3, .float-chip.c3 { animation-delay: -4.5s; }
-@keyframes bob { 50% { translate: 0 -12px; } }
-/* Tablets (portrait) and phones: one centred column, the globe + phone scene below the copy. */
+.stage .float, .stage .f2, @keyframes bob { 50% { translate: 0 -12px; } }
+/* Tablets (portrait) and phones: one centred column, the plates + phone scene below the copy. */
 @media (max-width: 1100px) {
   .hero { min-height: 0; }
   .hero .wrap { grid-template-columns: 1fr; min-height: 0; padding-top: 124px; padding-bottom: 64px; gap: 8px; text-align: center; }
@@ -242,10 +217,8 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .perks, .stores { justify-content: center; }
   .stage { width: min(760px, 100%); margin: 0 auto; height: clamp(440px, 72vw, 660px); min-height: 0; }
   .stage .hero-phone { width: clamp(180px, 30vw, 270px); right: 4%; bottom: 2%; }
-  .float-chip.c1 { left: 0; top: 10%; } .float-chip.c2 { left: 4%; bottom: 6%; } .float-chip.c3 { right: 0; top: -2%; }
-  .stage .f1 { left: 44%; top: -2%; } .stage .f3 { left: 50%; bottom: 0; }
-  .globe-hint { left: 36%; bottom: -6px; }
-}
+    .stage .f1 { left: 44%; top: -2%; } .stage .f3 { left: 50%; bottom: 0; }
+  }
 @media (max-width: 600px) {
   :root { --gutter: 16px; }
   .hero .wrap { padding-top: 104px; padding-bottom: 48px; }
@@ -258,14 +231,8 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .store .txt b { font-size: 1.12rem; } .store .txt small { font-size: 0.64rem; } .store .logo { width: 23px; height: 23px; }
   .stage { height: 118vw; max-height: 500px; margin: 0 calc(var(--gutter) * -1); width: auto; }
   .stage .hero-phone { width: 44vw; max-width: 200px; right: 5%; bottom: 3%; }
-  .float-chip { font-size: 0.78rem; padding: 5px 12px 5px 5px; gap: 8px; }
-  .float-chip img { width: 34px; height: 34px; }
-  .float-chip small { font-size: 0.64rem; }
-  .float-chip.c1 { left: 4%; top: 6%; } .float-chip.c2 { left: 4%; bottom: 8%; }
-  .float-chip.c3, .stage .f3 { display: none; }
-  .stage .f1 { --s: 58px; left: 50%; top: 0; }
-  .globe-hint { left: 30%; bottom: 0; }
-  h2 { font-size: clamp(2rem, 9vw, 2.6rem); }
+            .stage .f1 { --s: 58px; left: 50%; top: 0; }
+    h2 { font-size: clamp(2rem, 9vw, 2.6rem); }
   .section-head { margin-bottom: 36px; }
   .tile { padding: 22px; } .clay { width: 70px; height: 70px; border-radius: 22px; } .clay .i3d { --s: 50px; }
   .tile.big h3 { font-size: 1.7rem; }
@@ -276,6 +243,52 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
   .receipt .paper { padding: 24px 22px 40px; }
 }
 
+
+/* ── Talíře kuchyní kolem telefonu (prstenec řídí site.js) ── */
+.plates { position: absolute; inset: 0; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.plates.grabbing { cursor: grabbing; }
+.stage:not(.ready) .plate { opacity: 0; }
+.plate {
+  position: absolute; left: 0; top: 0; width: var(--s, 160px); height: var(--s, 160px); padding: 0; border: 0; border-radius: 50%;
+  cursor: inherit; transform-origin: 50% 50%; will-change: transform; transition: opacity 0.6s ease;
+  background: radial-gradient(circle at 50% 50%, #fff 0 64%, #f3ece4 66%, #fff 71%, #f6efe7 100%);
+  box-shadow:
+    inset 0 -0.06em 0.18em rgba(120, 80, 50, 0.18), inset 0 0.08em 0.12em rgba(255, 255, 255, 0.9),
+    0 0.03em 0.05em rgba(60, 30, 10, 0.18), 0 1.2em 1.8em -0.7em rgba(70, 35, 12, 0.45), 0 2.4em 3.4em -1.6em rgba(201, 47, 23, 0.25);
+  font-size: calc(var(--s, 160px) / 10);
+}
+.plate img { position: absolute; inset: 13%; width: 74%; height: 74%; border-radius: 50%; object-fit: cover; pointer-events: none; }
+.plate::after {
+  content: ''; position: absolute; inset: 13%; border-radius: 50%; pointer-events: none;
+  background: rgba(24, 14, 8, var(--shade, 0));
+  box-shadow: inset 0 0.18em 0.35em rgba(0, 0, 0, 0.28), inset 0 -0.1em 0.2em rgba(255, 255, 255, 0.25);
+}
+.plate .badge {
+  position: absolute; right: 1%; top: 3%; z-index: 1; width: 2.7em; height: 2.7em; display: grid; place-items: center; border-radius: 50%;
+  font-size: 1em; line-height: 1; background: #fff; box-shadow: 0 0.12em 0.4em rgba(60, 30, 10, 0.25); transition: transform 0.4s cubic-bezier(.3, 1.6, .5, 1);
+}
+.plate .badge { font-size: calc(var(--s, 160px) / 12); } .plate .badge { line-height: 1; }
+.plate.front { box-shadow:
+    0 0 0 0.25em color-mix(in srgb, var(--accent) 85%, #fff), inset 0 -0.06em 0.18em rgba(120, 80, 50, 0.18),
+    0 1.4em 2.2em -0.8em rgba(70, 35, 12, 0.5), 0 2.8em 4em -1.6em color-mix(in srgb, var(--accent) 60%, transparent); }
+.plate.front .badge { transform: scale(1.18); }
+.plate:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+:root[data-theme='dark'] .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .plate { background: radial-gradient(circle, #2b2521 0 64%, #221d1a 66%, #302925 71%, #241f1b 100%); } }
+.plate-label {
+  position: absolute; z-index: 120; transform: translate(-50%, 0); display: grid; justify-items: center; gap: 1px; pointer-events: none;
+  padding: 8px 18px; border-radius: 999px; white-space: nowrap; text-align: center;
+  background: color-mix(in srgb, var(--surface, #fff) 82%, transparent); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 10px 30px -12px rgba(60, 30, 10, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.plate-label b { font-size: 1rem; } .plate-label small { font-size: 0.78rem; color: var(--text-2); font-weight: 600; }
+.plate-label:empty, .plate-label b:empty { display: none; }
+.plate-label.pop { animation: labelPop 0.45s cubic-bezier(.3, 1.4, .5, 1); }
+@keyframes labelPop { from { transform: translate(-50%, 6px) scale(0.92); opacity: 0.4; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
+.plate-hint { position: absolute; left: 6%; bottom: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--muted); pointer-events: none; }
+.plate-hint svg { width: 16px; height: 16px; }
+@media (max-width: 600px) { .plate-hint { left: 50%; transform: translateX(-50%); bottom: -4px; white-space: nowrap; } .plate-label { padding: 6px 14px; } .plate-label b { font-size: 0.9rem; } }
+
 /* ── iPhone 16 Pro (Black Titanium). Real proportions: 402×874 pt screen, ~3.35 % border per side
    (0.8 % titanium band + 2.55 % black bezel), screen corner radius 13.7 % of its width.
    .phone is the size container, so every cqi below is a share of the phone's own width. ── */
@@ -283,13 +296,27 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .phone .body {
   position: absolute; inset: 0; border-radius: 16.15cqi; padding: 0.8cqi;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 6%, rgba(255,255,255,0) 94%, rgba(255,255,255,.18) 100%),
-    linear-gradient(90deg, #5a5a5d 0%, #2b2b2e 2.2%, #1b1b1d 50%, #2b2b2e 97.8%, #5a5a5d 100%);
+    linear-gradient(180deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,0) 5%, rgba(255,255,255,0) 95%, rgba(255,255,255,.16) 100%),
+    linear-gradient(90deg, #77777b 0%, #3d3d41 1.4%, #1d1d20 3.6%, #141416 50%, #1d1d20 96.4%, #3d3d41 98.6%, #77777b 100%);
   box-shadow:
-    inset 0 0 0 0.12cqi rgba(255, 255, 255, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.25),
-    0 18px 28px -16px rgba(20, 12, 8, 0.45),
-    0 48px 80px -36px rgba(20, 12, 8, 0.5);
+    inset 0 0 0 0.12cqi rgba(255, 255, 255, 0.42),
+    inset 0.5cqi 0.6cqi 0.9cqi -0.3cqi rgba(255, 255, 255, 0.28),
+    inset -0.5cqi -0.7cqi 1cqi -0.3cqi rgba(0, 0, 0, 0.55),
+    0 0.3cqi 0.5cqi rgba(0, 0, 0, 0.3),
+    0 3cqi 5cqi -1.5cqi rgba(30, 14, 6, 0.38),
+    0 10cqi 16cqi -5cqi rgba(30, 14, 6, 0.42),
+    0 22cqi 34cqi -12cqi rgba(201, 47, 23, 0.32);
+}
+/* Odlesk titanového rámu (horní levý roh) a měkký stín pod telefonem. */
+.phone .body::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: radial-gradient(60% 18% at 18% 0%, rgba(255,255,255,.5), transparent 70%), radial-gradient(40% 30% at 0% 30%, rgba(255,255,255,.16), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  padding: 0.8cqi;
+}
+.phone::after {
+  content: ''; position: absolute; left: 8%; right: 8%; bottom: -3.5%; height: 5%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(40, 18, 8, 0.38), transparent); filter: blur(4px);
 }
 .phone .bezel { position: relative; height: 100%; border-radius: 15.35cqi; padding: 2.55cqi; background: #000; box-shadow: inset 0 0 0 0.25cqi #0d0d0e; }
 .phone .screen { position: relative; height: 100%; border-radius: 12.8cqi; overflow: hidden; background: #000; transform: translateZ(0); isolation: isolate; }
@@ -300,10 +327,12 @@ html[lang='zh-Hans'] .hero h1, html[lang='ko'] .hero h1 { font-size: clamp(2.7re
 .phone .screen img:not(.on) { opacity: 0; }
 .phone .glare {
   position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit;
-  background: linear-gradient(125deg, rgba(255,255,255,.09) 0%, rgba(255,255,255,0) 22%);
-  box-shadow: inset 0 0 0 0.2cqi rgba(255,255,255,.05);
+  background:
+    linear-gradient(118deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.05) 26%, rgba(255,255,255,0) 26.5%),
+    linear-gradient(300deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 18%);
+  box-shadow: inset 0 0 0 0.2cqi rgba(255,255,255,.06), inset 0 0 2.4cqi rgba(0,0,0,.28);
 }
-.phone .b { position: absolute; width: 0.75cqi; border-radius: 0.4cqi; background: linear-gradient(90deg, #0e0e0f 0%, #4b4b4e 50%, #1d1d1f 100%); }
+.phone .b { position: absolute; width: 0.8cqi; border-radius: 0.4cqi; background: linear-gradient(90deg, #0b0b0c 0%, #5e5e62 45%, #2a2a2d 70%, #111113 100%); box-shadow: -0.15cqi 0 0.3cqi rgba(0,0,0,.35); }
 .phone .action { left: -0.6cqi; top: 18%; height: 6%; }
 .phone .vol-up { left: -0.6cqi; top: 27%; height: 10.5%; }
 .phone .vol-down { left: -0.6cqi; top: 39.5%; height: 10.5%; }
